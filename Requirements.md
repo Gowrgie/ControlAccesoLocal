@@ -10,6 +10,10 @@ RF-04. El sistema se reiniciara después de cada captura para permitir nuevos da
 
 RF-05. El sistema permitira modificar la contraseña valida en el programa.
 
+RF-06. Si transcurren más de 5 segundos sin recibir una nueva pulsación durante una captura incompleta, el sistema limpiará el búfer de entrada, descartará los datos introducidos y regresará automáticamente a la pantalla de inicio.
+
+RF-07. Tras acumular 3 intentos consecutivos incorrectos, el sistema se bloqueará durante 30 a 60 segundos, impidiendo el registro de nuevas pulsaciones y mostrando un mensaje de advertencia / cuenta regresiva en pantalla.
+
 ## Requerimientos No Funcionales
 RNF-01. El sistema evitara registrar una pulsacion fisica debido al rebote del botón
 
