@@ -10,6 +10,8 @@ RF-04. El sistema se reiniciara después de cada captura para permitir nuevos da
 
 RF-05. Si transcurren más de 4 segundos sin recibir una nueva pulsación durante una captura incompleta, el sistema limpiará el búfer de entrada, descartará los datos introducidos y regresará automáticamente a la pantalla de inicio.
 
+RF-06. El sistema emitira un sonido por cada vez que se reinicie el sistema y se pueda volver a ingresar la contraseña.
+
 ## Requerimientos No Funcionales
 RNF-01. El sistema evitara registrar una pulsacion fisica debido al rebote del botón
 
