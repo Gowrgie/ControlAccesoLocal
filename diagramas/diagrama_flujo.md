@@ -1,4 +1,4 @@
-´´´mermaid
+```mermaid
 flowchart TD
     A([Inicio]) --> B[Inicializar sistema]
     B --> C[/Emitir sonido de sistema listo/]
@@ -24,4 +24,4 @@ flowchart TD
     T --> U[Limpiar secuencia capturada]
     U --> V[Reiniciar captura]
     V --> C
-    ´´´
+    ```
