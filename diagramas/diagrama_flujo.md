@@ -22,4 +22,5 @@ flowchart TD
     R --> S
     S --> T[/Apagar LEDs/]
     T --> U[Limpiar secuencia capturada]
-´´´
+    U --> L[Reiniciar captura]
+    ```
