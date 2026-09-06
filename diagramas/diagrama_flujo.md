@@ -15,9 +15,11 @@ flowchart TD
     H -- Sí --> M[Comparar secuencia con contraseña válida]
     M --> N{¿Contraseña correcta?}
     N -- Sí --> O[/Encender LED verde/]
-    O --> P[Autorizar acceso]
+    O --> O2[/Emitir 3 tonos cortos/]
+    O2 --> P[Autorizar acceso]
     N -- No --> Q[/Encender LED rojo/]
-    Q --> R[Rechazar acceso]
+    Q --> Q2[/Emitir 3 tonos cortos/]
+    Q2 --> R[Rechazar acceso]
     P --> S[Esperar hasta 1 segundo]
     R --> S
     S --> T[/Apagar LEDs/]
