@@ -12,6 +12,11 @@ RF-05. Si transcurren más de 4 segundos sin recibir una nueva pulsación durant
 
 RF-06. El sistema emitira un sonido por cada vez que se reinicie el sistema y se pueda volver a ingresar la contraseña.
 
+RF-07. El sistema emitirá tres tonos cortos del buzzer al evaluar la
+secuencia ingresada, tanto si la contraseña es correcta como si es
+incorrecta, coincidiendo con el encendido del LED verde o rojo
+correspondiente.
+
 ## Requerimientos No Funcionales
 RNF-01. El sistema evitara registrar una pulsacion fisica debido al rebote del botón
 
