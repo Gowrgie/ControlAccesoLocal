@@ -22,14 +22,21 @@ GPIO.setup(LED_VERDE, GPIO.OUT)
 GPIO.setup(LED_ROJO, GPIO.OUT)
 GPIO.setup(BUZZER, GPIO.OUT)
 
+buzzer_pwm = GPIO.PWM(BUZZER, 440)
 GPIO.output(LED_VERDE, GPIO.LOW)
 GPIO.output(LED_ROJO, GPIO.LOW)
-GPIO.output(BUZZER, GPIO.LOW)
+
+def reproducir_tono(frecuencia, duracion):
+    buzzer_pwm.ChangeFrequency(frecuencia)
+    buzzer_pwm.start(50)
+    time.sleep(duracion)
+    buzzer_pwm.stop()
 
 
 def revisar_boton(pin, valor):
     if GPIO.input(pin) == GPIO.LOW:
         print("BOTON PRESIONADO, valor =" , valor)
+        reproducir_tono(1000, 0.05)
         while GPIO.input(pin) == GPIO.LOW:
             time.sleep(0.01)
         print("Boton liberado")
@@ -38,21 +45,19 @@ def revisar_boton(pin, valor):
     return None
 
 def sonido_inicio_captura():
-    GPIO.output(BUZZER, GPIO.HIGH)
-    time.sleep(0.15)
-    GPIO.output(BUZZER, GPIO.LOW)
+    reproducir_tono(800, 0.15)
 
 def feedback_correcto():
     for _ in range(3):
         GPIO.output(LED_VERDE, GPIO.HIGH)
-        time.sleep(0.15)
+        reproducir_tono(1500, 0.12)
         GPIO.output(LED_VERDE, GPIO.LOW)
         time.sleep(0.15)
 
 def feedback_incorrecto():
     for _ in range(3):
         GPIO.output(LED_ROJO, GPIO.HIGH)
-        time.sleep(0.15)
+        reproducir_tono(200, 0.12)
         GPIO.output(LED_ROJO, GPIO.LOW)
         time.sleep(0.15)
 
@@ -102,7 +107,7 @@ try:
 except KeyboardInterrupt:
     print("\nPrograma terminado")
 finally:
+    buzzer_pwm.stop()
     GPIO.output(LED_VERDE, GPIO.LOW)
     GPIO.output(LED_ROJO, GPIO.LOW)
-    GPIO.output(BUZZER, GPIO.LOW)
     GPIO.cleanup()
