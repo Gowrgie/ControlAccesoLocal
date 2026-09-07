@@ -41,8 +41,9 @@ def cambiar_password():
     if clave != ADMIN_PASSWORD:
         print("Clave de administrador incorrecta")
         return
-    entrada = input("Nueva secuencia (ej: 1 2 3 1 2 3): ")
-    nueva_secuencia = [int(numero) for numero in entrada.split()]
+    entrada = input("Nueva secuencia (ej: 123123): ")
+    nueva_secuencia = [int(digito) for digito in entrada]
+    print("Secuencia detectada:", " ".join(str(digito) for digito in nueva_secuencia))
     guardar_password(nueva_secuencia)
     print("Contraseña actualizada")
 
