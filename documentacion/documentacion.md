@@ -14,6 +14,34 @@ Cada botón representará un valor diferente que posteriormente será utilizado 
 
 La función principal del equipo de hardware es conseguir que las pulsaciones físicas realizadas por el usuario puedan ser detectadas correctamente por la Raspberry Pi y posteriormente enviadas al programa desarrollado por el equipo de software.
 
+### Elementos utilizados para el sistema
+
+Para la creación del sistema se utilizaron los siguientes elementos:
+
+- Raspberry Pi 5.
+- Monitor.
+- Teclado.
+- Mouse.
+- Fuente de alimentación.
+- Conexión de red.
+- 1 Protoboard.
+- 7 Cables jumper.
+- 3 Cables rígidos para protoboard
+- 3 Botones físicos.
+
+Posteriormente, conforme avanzó el desarrollo, también se incorporaron:
+
+- 1 LED verde.
+- 3 Resistencias de 220 Ω
+- 1 LED rojo.
+- 1 Buzzer.
+
+Estos componentes se fueron agregando de manera progresiva de acuerdo con las necesidades del prototipo.
+
+En las primeras etapas, el objetivo principal fue comprobar el funcionamiento de la Raspberry Pi, establecer la conexión remota y realizar pruebas de lectura mediante un solo botón.
+
+Después de validar esa parte, se incorporaron los demás botones y los indicadores visuales y auditivos.
+
 ---
 
 ## 2. Preparación inicial de la Raspberry Pi
@@ -765,17 +793,17 @@ Hasta este punto se han completado las siguientes actividades:
 - [x] Creación de una segunda versión de `prueba_boton.py`.
 - [x] Implementación manual del control de rebote.
 - [x] Confirmar definitivamente la lectura física del primer botón.
-- [ ] Incorporar el segundo botón.
-- [ ] Incorporar el tercer botón.
-- [ ] Realizar la integración con el programa principal.
+- [x] Incorporar el segundo botón.
+- [x] Incorporar el tercer botón.
+- [x] Realizar la integración con el programa principal.
 
 ---
 
-## 17. Próximo objetivo de hardware
+## 17. Comprobación del funcionamiento del primer botón
 
-El siguiente objetivo inmediato es comprobar que la nueva versión del programa detecte correctamente la pulsación del primer botón.
+Después de modificar la implementación para utilizar `RPi.GPIO`, se realizó nuevamente la prueba física del primer botón.
 
-El resultado esperado en terminal es:
+El resultado obtenido en terminal fue el esperado:
 
 ```text
 Programa iniciado
@@ -784,29 +812,17 @@ Esperando que presiones el botón...
 BOTÓN PRESIONADO
 Botón liberado
 ```
-
-Cada vez que el usuario vuelva a presionar el botón deberá repetirse:
-
-```text
-BOTÓN PRESIONADO
-Botón liberado
-```
-
-Una vez comprobado este comportamiento, se podrá continuar con los otros dos botones.
-
 ---
 
-## 18. Configuración prevista para los tres botones
-
-Después de comprobar el funcionamiento del primer pulsador se realizará la conexión de tres botones.
+## 18. Configuración de los tres botones
 
 De momento, la configuración prevista es:
 
 | Botón | Valor | GPIO BCM | Pin físico |
 |---|---:|---:|---:|
-| Botón 1 | 1 | GPIO18 | 12 |
-| Botón 2 | 2 | Por definir | Por definir |
-| Botón 3 | 3 | Por definir | Por definir |
+| Botón 1 | 1 | GPIO14 | 8 |
+| Botón 2 | 2 | GPIO15 | 10 |
+| Botón 3 | 3 | GPIO18 | 12 |
 | Tierra | - | GND | 6 |
 
 Cada botón representará un valor distinto que posteriormente será enviado al programa principal.
@@ -900,7 +916,9 @@ Implementación de lectura LOW/HIGH
         ↓
 Implementación manual de debounce
         ↓
-Pendiente: confirmar lectura física
+Lectura física confirmada
+        ↓
+Integración de los tres botones
 ```
 
 ---
@@ -923,6 +941,664 @@ Debido a este problema se cambió la implementación y se instaló `python3-rpi-
 
 Posteriormente se creó una segunda versión del programa, en la cual GPIO18 se configura directamente como entrada con una resistencia pull-up interna y se detectan los estados HIGH y LOW del botón.
 
-El siguiente paso consiste en comprobar físicamente el funcionamiento de esta segunda implementación.
+La segunda implementación permitió comprobar correctamente la lectura física del primer botón.
 
-Una vez que el primer botón sea detectado correctamente, se agregarán los otros dos pulsadores y posteriormente se integrará la entrada física con el programa principal del sistema de control de acceso.
+A partir de este resultado se continuó con la incorporación de los otros dos pulsadores y con las pruebas de captura de secuencias.
+
+Posteriormente se comprobó que los tres botones podían ser detectados correctamente y que cada uno podía asociarse con un valor distinto.
+
+---
+
+## 22. Prueba de funcionamiento con tres botones
+
+Una vez comprobado el funcionamiento correcto de un solo botón, el siguiente paso fue extender la prueba para trabajar con los tres botones requeridos por el sistema.
+
+Para esta etapa se utilizaron los siguientes GPIO:
+
+| Botón | Valor | GPIO BCM |
+|---|---:|---:|
+| Botón 1 | 1 | GPIO14 |
+| Botón 2 | 2 | GPIO15 |
+| Botón 3 | 3 | GPIO18 |
+
+Cada botón se configuró como entrada con resistencia pull-up interna.
+
+El código utilizado fue:
+
+```python
+from RPi import GPIO
+import time
+
+PIN_BOTON_1 = 14
+PIN_BOTON_2 = 15
+PIN_BOTON_3 = 18
+
+GPIO.setmode(GPIO.BCM)
+
+GPIO.setup(PIN_BOTON_1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(PIN_BOTON_2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(PIN_BOTON_3, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+def revisar_boton(pin, valor):
+    if GPIO.input(pin) == GPIO.LOW:
+        print("BOTON PRESIONADO, valor =", valor)
+
+        while GPIO.input(pin) == GPIO.LOW:
+            time.sleep(0.01)
+
+        print("Boton liberado")
+        time.sleep(0.2)
+
+        return valor
+
+    return None
+
+
+secuencia = []
+
+print("Programa iniciado")
+print("Esperando que presiones los botones...")
+
+try:
+    while True:
+        valor1 = revisar_boton(PIN_BOTON_1, 1)
+        valor2 = revisar_boton(PIN_BOTON_2, 2)
+        valor3 = revisar_boton(PIN_BOTON_3, 3)
+
+        if valor1 is not None:
+            secuencia.append(valor1)
+
+        if valor2 is not None:
+            secuencia.append(valor2)
+
+        if valor3 is not None:
+            secuencia.append(valor3)
+
+        if len(secuencia) > 0:
+            print("Secuencia actual:", secuencia)
+
+        if len(secuencia) == 6:
+            print(
+                "Se completaron 6 pulsaciones, secuencia lista:",
+                secuencia
+            )
+            break
+
+except KeyboardInterrupt:
+    print("\nPrograma terminado")
+
+finally:
+    GPIO.cleanup()
+```
+
+### Resultado de la prueba
+
+La prueba permitió comprobar que:
+
+- los tres botones fueron detectados correctamente;
+- cada botón podía distinguirse de los demás;
+- cada pulsador generaba el valor asignado;
+- los valores podían almacenarse dentro de una secuencia;
+- el sistema podía detectar cuando se completaban seis pulsaciones.
+
+Por ejemplo:
+
+```text
+Botón 1 → 1
+Botón 2 → 2
+Botón 3 → 3
+```
+
+Durante esta prueba también se detectó un detalle en la salida del programa.
+
+La condición:
+
+```python
+if len(secuencia) > 0:
+    print("Secuencia actual:", secuencia)
+```
+
+provocaba que la secuencia se imprimiera continuamente dentro del ciclo principal, incluso cuando no se registraba una nueva pulsación.
+
+Este comportamiento no impedía detectar los botones, pero generaba una salida repetitiva innecesaria.
+
+Por esta razón se decidió corregirlo en la siguiente versión.
+
+---
+
+## 23. Corrección de la impresión repetitiva
+
+Después de comprobar que los tres botones funcionaban correctamente, se modificó la lógica para que la secuencia solo se mostrara cuando realmente se registrara una nueva pulsación.
+
+Para ello se agregó una variable de control:
+
+```python
+nueva_pulsacion = False
+```
+
+Cuando alguno de los botones era detectado, además de agregar su valor a la secuencia se modificaba la variable:
+
+```python
+if valor1 is not None:
+    secuencia.append(valor1)
+    nueva_pulsacion = True
+```
+
+El mismo procedimiento se aplicó para los otros dos botones.
+
+Posteriormente, la secuencia únicamente se imprimía mediante:
+
+```python
+if nueva_pulsacion:
+    print("Secuencia actual:", secuencia)
+```
+
+Con este cambio se eliminó la impresión repetitiva que se producía en la versión anterior.
+
+---
+
+## 24. Integración de indicadores LED y buzzer
+
+Después de comprobar la lectura estable de los tres botones, se decidió incorporar elementos físicos adicionales para proporcionar retroalimentación al usuario.
+
+Se agregaron:
+
+- un LED verde;
+- un LED rojo;
+- un buzzer.
+
+Los LED se conectaron utilizando resistencias de 220 Ω para limitar la corriente y proteger tanto los LED como las salidas GPIO de la Raspberry Pi.
+
+Estos componentes permiten comunicar físicamente el estado del sistema.
+
+La configuración utilizada fue:
+
+```python
+LED_VERDE = 23
+LED_ROJO = 24
+BUZZER = 25
+```
+
+También se definió una contraseña válida:
+
+```python
+PASSWORD_VALIDA = [1, 2, 3, 1, 2, 3]
+```
+
+La clave contiene seis pulsaciones.
+
+### Configuración de las salidas
+
+Los LED y el buzzer se configuraron como salidas:
+
+```python
+GPIO.setup(LED_VERDE, GPIO.OUT)
+GPIO.setup(LED_ROJO, GPIO.OUT)
+GPIO.setup(BUZZER, GPIO.OUT)
+```
+
+Inicialmente se mantuvieron apagados:
+
+```python
+GPIO.output(LED_VERDE, GPIO.LOW)
+GPIO.output(LED_ROJO, GPIO.LOW)
+GPIO.output(BUZZER, GPIO.LOW)
+```
+
+### Sonido de inicio de captura
+
+Se creó una función para generar una señal cuando el sistema estuviera listo para capturar una nueva secuencia:
+
+```python
+def sonido_inicio_captura():
+    GPIO.output(BUZZER, GPIO.HIGH)
+    time.sleep(0.15)
+    GPIO.output(BUZZER, GPIO.LOW)
+```
+
+Esta función permite que el usuario sepa que el sistema se encuentra esperando una nueva clave.
+
+### Indicador de acceso correcto
+
+Para indicar que una secuencia coincide con la contraseña válida se creó:
+
+```python
+def feedback_correcto():
+    for _ in range(3):
+        GPIO.output(LED_VERDE, GPIO.HIGH)
+        time.sleep(0.15)
+        GPIO.output(LED_VERDE, GPIO.LOW)
+        time.sleep(0.15)
+```
+
+El LED verde parpadea tres veces para indicar un acceso autorizado.
+
+### Indicador de acceso incorrecto
+
+Para una contraseña incorrecta se creó:
+
+```python
+def feedback_incorrecto():
+    for _ in range(3):
+        GPIO.output(LED_ROJO, GPIO.HIGH)
+        time.sleep(0.15)
+        GPIO.output(LED_ROJO, GPIO.LOW)
+        time.sleep(0.15)
+```
+
+El LED rojo parpadea tres veces para indicar un acceso denegado.
+
+### Comparación de la contraseña
+
+Una vez completadas las seis pulsaciones se realiza la comparación:
+
+```python
+if secuencia == PASSWORD_VALIDA:
+    print("Contraseña correcta")
+    feedback_correcto()
+else:
+    print("Contraseña incorrecta")
+    feedback_incorrecto()
+```
+
+Después de la validación, la secuencia se reinicia:
+
+```python
+secuencia = []
+```
+
+El sistema vuelve entonces al estado de espera:
+
+```python
+print("Esperando nueva captura")
+sonido_inicio_captura()
+```
+
+### Resultado de la prueba
+
+La integración funcionó correctamente.
+
+Se comprobó que:
+
+- los tres botones continuaban siendo detectados;
+- la secuencia podía capturarse correctamente;
+- una secuencia válida activaba el LED verde;
+- una secuencia incorrecta activaba el LED rojo;
+- el buzzer indicaba el inicio de una nueva captura;
+- el sistema permitía ingresar una nueva secuencia después de cada intento.
+
+---
+
+## 25. Implementación de sonidos diferentes mediante PWM
+
+Después de comprobar el funcionamiento básico del buzzer, se decidió mejorar la retroalimentación auditiva.
+
+En lugar de utilizar solamente estados HIGH y LOW, se utilizó PWM para generar distintas frecuencias.
+
+Se creó un objeto PWM:
+
+```python
+buzzer_pwm = GPIO.PWM(BUZZER, 440)
+```
+
+PWM significa:
+
+**Pulse Width Modulation**
+
+En español:
+
+**Modulación por ancho de pulso**
+
+En este caso se utiliza para generar diferentes frecuencias en el buzzer y producir tonos distintos.
+
+### Función para reproducir tonos
+
+Se creó la siguiente función:
+
+```python
+def reproducir_tono(frecuencia, duracion):
+    buzzer_pwm.ChangeFrequency(frecuencia)
+    buzzer_pwm.start(50)
+    time.sleep(duracion)
+    buzzer_pwm.stop()
+```
+
+La función recibe:
+
+- `frecuencia`: frecuencia del sonido en Hz;
+- `duracion`: tiempo durante el cual se reproduce.
+
+### Sonido al presionar un botón
+
+Cada pulsación genera un tono corto:
+
+```python
+reproducir_tono(1000, 0.05)
+```
+
+Esto proporciona una confirmación auditiva inmediata de que el botón fue detectado.
+
+### Sonido de inicio de captura
+
+Se configuró:
+
+```python
+reproducir_tono(800, 0.15)
+```
+
+Este sonido indica que el sistema está listo para recibir una nueva secuencia.
+
+### Sonido de acceso correcto
+
+Durante el parpadeo del LED verde se reproduce:
+
+```python
+reproducir_tono(1500, 0.12)
+```
+
+La frecuencia más alta permite diferenciar el resultado correcto.
+
+### Sonido de acceso incorrecto
+
+Durante el parpadeo del LED rojo se reproduce:
+
+```python
+reproducir_tono(200, 0.12)
+```
+
+La frecuencia más baja permite distinguir claramente una contraseña incorrecta.
+
+### Resultado
+
+Después de esta modificación, el sistema proporciona distintos tipos de retroalimentación:
+
+```text
+Pulsación detectada
+        ↓
+Tono corto de 1000 Hz
+
+Nueva captura
+        ↓
+Tono de 800 Hz
+
+Clave correcta
+        ↓
+LED verde + tono de 1500 Hz
+
+Clave incorrecta
+        ↓
+LED rojo + tono de 200 Hz
+```
+
+La prueba se realizó correctamente y los distintos sonidos pudieron diferenciarse durante el funcionamiento del prototipo.
+
+---
+
+## 26. Implementación de límite de tiempo por inactividad
+
+Después de comprobar la captura, validación, LED y buzzer, se añadió una condición para cancelar una captura incompleta cuando el usuario deja de ingresar pulsaciones durante demasiado tiempo.
+
+Se estableció un límite de:
+
+```python
+TIEMPO_LIMITE_INACTIVIDAD = 4
+```
+
+Esto significa que el usuario dispone de un máximo de cuatro segundos entre pulsaciones mientras existe una secuencia incompleta.
+
+### Registro de la última pulsación
+
+Se agregó la variable:
+
+```python
+tiempo_ultima_pulsacion = None
+```
+
+Cada vez que se registra una nueva pulsación, se actualiza mediante:
+
+```python
+tiempo_ultima_pulsacion = time.time()
+```
+
+`time.time()` devuelve el tiempo actual.
+
+Posteriormente se calcula cuánto tiempo ha transcurrido:
+
+```python
+tiempo_pasado = time.time() - tiempo_ultima_pulsacion
+```
+
+### Condición de inactividad
+
+La comprobación solamente se realiza si ya existe al menos una pulsación y todavía no se han completado las seis:
+
+```python
+if len(secuencia) > 0 and len(secuencia) < 6:
+```
+
+Después se verifica:
+
+```python
+if tiempo_pasado > TIEMPO_LIMITE_INACTIVIDAD:
+```
+
+Si han pasado más de cuatro segundos desde la última pulsación, la captura se cancela.
+
+### Retroalimentación por timeout
+
+Se creó:
+
+```python
+def feedback_timeout():
+    GPIO.output(LED_ROJO, GPIO.HIGH)
+    reproducir_tono(300, 0.3)
+    GPIO.output(LED_ROJO, GPIO.LOW)
+```
+
+Cuando se supera el tiempo permitido:
+
+- se enciende temporalmente el LED rojo;
+- se reproduce un tono de 300 Hz;
+- se elimina la secuencia incompleta.
+
+El reinicio se realiza mediante:
+
+```python
+secuencia = []
+tiempo_ultima_pulsacion = None
+```
+
+Además se muestra:
+
+```text
+Se excedio el limite de tiempo sin pulsaciones, se cancela la captura
+```
+
+y el sistema vuelve a esperar una nueva secuencia.
+
+### Funcionamiento esperado
+
+Por ejemplo:
+
+```text
+Usuario presiona botón 1
+        ↓
+Secuencia: [1]
+        ↓
+Usuario presiona botón 2
+        ↓
+Secuencia: [1, 2]
+        ↓
+Pasan más de 4 segundos
+        ↓
+Se cancela la captura
+        ↓
+LED rojo + tono de timeout
+        ↓
+Secuencia = []
+        ↓
+Sistema listo para una nueva captura
+```
+
+### Resultado de la prueba
+
+La implementación fue probada correctamente.
+
+Se comprobó que:
+
+- el temporizador comienza después de una pulsación;
+- cada nueva pulsación actualiza el tiempo;
+- si transcurren más de cuatro segundos sin completar las seis pulsaciones, la secuencia se cancela;
+- el sistema proporciona retroalimentación mediante LED y buzzer;
+- después de cancelar la captura, el sistema puede iniciar una nueva secuencia sin reiniciar el programa.
+
+---
+
+## 27. Estado actual del prototipo de hardware
+
+Actualmente el sistema permite:
+
+- [x] Detectar tres botones físicos.
+- [x] Identificar correctamente cuál botón fue presionado.
+- [x] Asociar los botones con valores diferentes.
+- [x] Capturar una secuencia de seis pulsaciones.
+- [x] Controlar el rebote de los pulsadores.
+- [x] Comparar la secuencia con una contraseña válida.
+- [x] Mostrar si la contraseña es correcta o incorrecta.
+- [x] Activar un LED verde cuando la contraseña es correcta.
+- [x] Activar un LED rojo cuando la contraseña es incorrecta.
+- [x] Utilizar un buzzer como indicador auditivo.
+- [x] Generar diferentes tonos según el evento.
+- [x] Generar un sonido al detectar una pulsación.
+- [x] Generar un sonido al comenzar una nueva captura.
+- [x] Generar un sonido diferente para acceso correcto.
+- [x] Generar un sonido diferente para acceso incorrecto.
+- [x] Reiniciar automáticamente la secuencia después de cada intento.
+- [x] Cancelar una captura incompleta después de cuatro segundos de inactividad.
+- [x] Permitir un nuevo intento después de un timeout.
+- [x] Ejecutar el prototipo de manera continua sin problemas relevantes.
+
+---
+
+## 28. Flujo actual del sistema
+
+El funcionamiento actual del prototipo puede resumirse de la siguiente manera:
+
+```text
+Iniciar programa
+        ↓
+Configurar botones, LED y buzzer
+        ↓
+Sonido de inicio
+        ↓
+Esperar pulsación
+        ↓
+¿Se presionó un botón?
+        ↓ Sí
+Registrar valor 1, 2 o 3
+        ↓
+Reproducir tono de pulsación
+        ↓
+Actualizar tiempo de última pulsación
+        ↓
+¿Se completaron 6 pulsaciones?
+     ↓ No                     ↓ Sí
+¿Pasaron más de 4 s?       Comparar clave
+     ↓                        ↓
+   Sí / No              Correcta / Incorrecta
+     ↓                        ↓
+Si Sí: cancelar        LED + sonido correspondiente
+captura                     ↓
+     ↓                 Reiniciar secuencia
+LED + sonido timeout          ↓
+     ↓                 Esperar nueva captura
+Reiniciar secuencia
+     ↓
+Esperar nueva captura
+```
+
+---
+
+## 29. Evolución del prototipo
+
+El desarrollo del hardware siguió una evolución incremental:
+
+```text
+1 botón
+   ↓
+Detección básica
+   ↓
+Error con gpiozero/lgpio
+   ↓
+Cambio a RPi.GPIO
+   ↓
+1 botón funcionando
+   ↓
+3 botones funcionando
+   ↓
+Captura de secuencia
+   ↓
+Corrección de impresión repetitiva
+   ↓
+Validación de contraseña
+   ↓
+Integración de LED
+   ↓
+Integración de buzzer
+   ↓
+Sonidos diferenciados mediante PWM
+   ↓
+Reinicio automático
+   ↓
+Timeout de 4 segundos
+   ↓
+Prototipo funcional y estable
+```
+
+Esta evolución permite observar cómo cada cambio se incorporó y verificó de forma progresiva.
+
+---
+
+## 30. Conclusión actualizada
+
+El equipo de hardware consiguió implementar y comprobar la entrada física completa del sistema de control de acceso.
+
+Inicialmente se trabajó con un solo botón para validar la conexión GPIO y el funcionamiento del acceso desde Python.
+
+Después de resolver el problema presentado con `gpiozero` y `lgpio`, se utilizó una implementación compatible con `RPi.GPIO`.
+
+Posteriormente se incorporaron tres botones físicos y se comprobó que cada uno pudiera identificarse correctamente mediante un valor distinto.
+
+Una vez validada la entrada de los tres botones, se incorporó la captura de una secuencia de seis pulsaciones y su comparación con una contraseña configurable.
+
+También se añadieron indicadores físicos mediante un LED verde, un LED rojo y un buzzer.
+
+El sistema utiliza distintos tonos para indicar:
+
+- detección de una pulsación;
+- inicio de captura;
+- contraseña correcta;
+- contraseña incorrecta;
+- cancelación por tiempo de espera.
+
+Finalmente se implementó un límite de cuatro segundos de inactividad. Si el usuario comienza una secuencia pero no completa las seis pulsaciones dentro del flujo esperado, el sistema elimina la captura parcial y vuelve automáticamente al estado inicial.
+
+Actualmente el prototipo funciona de manera estable y permite realizar intentos consecutivos sin necesidad de reiniciar manualmente el programa.
+
+--- 
+## 31. Evidencias de validación
+
+Durante el desarrollo se realizaron las siguientes pruebas:
+
+- Detección independiente del botón 1.
+- Detección independiente del botón 2.
+- Detección independiente del botón 3.
+- Captura de una secuencia de seis pulsaciones.
+- Prueba con contraseña correcta.
+- Prueba con contraseña incorrecta.
+- Reinicio automático después de cada intento.
+- Validación del LED verde para acceso correcto.
+- Validación del LED rojo para acceso incorrecto.
+- Validación de los distintos tonos del buzzer.
+- Prueba de cancelación después de cuatro segundos de inactividad.
+- Nueva captura después de una cancelación por timeout.
