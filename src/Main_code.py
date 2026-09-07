@@ -1,5 +1,8 @@
 from RPi import GPIO
 import time
+import hashlib
+import os
+import sys
 
 PIN_BOTON_1 = 14
 PIN_BOTON_2 = 15
@@ -9,8 +12,44 @@ LED_VERDE = 23
 LED_ROJO = 24
 BUZZER = 25
 
-PASSWORD_VALIDA = [1, 2, 3, 1, 2, 3]
 TIEMPO_LIMITE_INACTIVIDAD = 4
+
+ARCHIVO_PASSWORD = "password.txt"
+ADMIN_PASSWORD = "admin123"
+PASSWORD_INICIAL = [1, 2, 3, 1, 2, 3]
+
+
+def calcular_hash(secuencia):
+    texto = ",".join(str(numero) for numero in secuencia)
+    return hashlib.sha256(texto.encode()).hexdigest()
+
+def guardar_password(secuencia):
+    with open(ARCHIVO_PASSWORD, "w") as archivo:
+        archivo.write(calcular_hash(secuencia))
+
+def leer_password_guardada():
+    if not os.path.exists(ARCHIVO_PASSWORD):
+        guardar_password(PASSWORD_INICIAL)
+    with open(ARCHIVO_PASSWORD, "r") as archivo:
+        return archivo.read().strip()
+
+def verificar_password(secuencia):
+    return calcular_hash(secuencia) == leer_password_guardada()
+
+def cambiar_password():
+    clave = input("Contraseña de administrador: ")
+    if clave != ADMIN_PASSWORD:
+        print("Clave de administrador incorrecta")
+        return
+    entrada = input("Nueva secuencia (ej: 1 2 3 1 2 3): ")
+    nueva_secuencia = [int(numero) for numero in entrada.split()]
+    guardar_password(nueva_secuencia)
+    print("Contraseña actualizada")
+
+
+if len(sys.argv) > 1 and sys.argv[1] == "--admin":
+    cambiar_password()
+    sys.exit()
 
 
 GPIO.setmode(GPIO.BCM)
@@ -108,7 +147,7 @@ try:
         if len(secuencia) == 6:
             print("Se completaron 6 pulsaciones, secuencia lista:", secuencia)
 
-            if secuencia == PASSWORD_VALIDA:
+            if verificar_password(secuencia):
                 print("Contraseña correcta")
                 feedback_correcto()
             else:
