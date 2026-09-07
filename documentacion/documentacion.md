@@ -839,7 +839,9 @@ Botón 3 presionado → 3
 
 ## 19. Relación con los requerimientos
 
-El trabajo desarrollado por el equipo de hardware está principalmente relacionado con los siguientes requerimientos.
+El trabajo desarrollado por el equipo de hardware se alinea con los requerimientos del proyecto. La matriz completa y oficial de trazabilidad con el detalle de issues, PRs y evidencias se encuentra documentada en [../traceability.md](../traceability.md).
+
+A continuación se resume brevemente el alcance del hardware respecto a los requerimientos clave abordados:
 
 ### RF-01
 
@@ -851,7 +853,7 @@ El equipo de hardware proporciona los dispositivos físicos mediante los cuales 
 
 > El sistema capturará una clave de 4 a 6 pulsaciones.
 
-Los botones permitirán generar las pulsaciones necesarias para formar la clave.
+Los botones permitirán generar las pulsaciones necesarias para formar la clave (el prototipo físico captura una secuencia de 6 pulsaciones).
 
 ### RNF-01
 
