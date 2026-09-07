@@ -10,6 +10,7 @@ LED_ROJO = 24
 BUZZER = 25
 
 PASSWORD_VALIDA = [1, 2, 3, 1, 2, 3]
+TIEMPO_LIMITE_INACTIVIDAD = 4
 
 
 GPIO.setmode(GPIO.BCM)
@@ -61,9 +62,13 @@ def feedback_incorrecto():
         GPIO.output(LED_ROJO, GPIO.LOW)
         time.sleep(0.15)
 
+def feedback_timeout():
+    GPIO.output(LED_ROJO, GPIO.HIGH)
+    reproducir_tono(300, 0.3)
+    GPIO.output(LED_ROJO, GPIO.LOW)
 
 secuencia = []
-
+tiempo_ultima_pulsacion = None
 print("Programa iniciado")
 print("Esperando que presiones los botones...")
 sonido_inicio_captura()
@@ -89,7 +94,17 @@ try:
 
         if nueva_pulsacion:
             print("Secuencia actual:", secuencia)
+            tiempo_ultima_pulsacion = time.time()
 
+        if len (secuencia) > 0 and len(secuencia) < 6:
+            if tiempo_ultima_pulsacion is not None:
+                tiempo_pasado = time.time() - tiempo_ultima_pulsacion
+                if tiempo_pasado > TIEMPO_LIMITE_INACTIVIDAD:
+                    print("Se excedio el limite de tiempo sin pulsaciones, se cancela la captura")
+                    feedback_timeout()
+                    secuencia = []
+                    tiempo_ultima_pulsacion = None
+                    print("Esperando que se presionen los botones...")
         if len(secuencia) == 6:
             print("Se completaron 6 pulsaciones, secuencia lista:", secuencia)
 
@@ -101,6 +116,7 @@ try:
                 feedback_incorrecto()
 
             secuencia = []
+            tiempo_ultima_pulsacion = None
             print("Esperando nueva captura")
             sonido_inicio_captura()
 
