@@ -9,7 +9,10 @@ flowchart TD
     F --> G[Aplicar control de rebote]
     G --> H[Agregar valor a la secuencia]
     H --> I{¿Secuencia completa?}
-    I -- No --> C
+    I -- No --> T{¿Pasaron más de 4 segundos sin pulsación?}
+    T -- No --> C
+    T -- Sí --> U[Descartar secuencia y reiniciar]
+    U --> C
     I -- Sí --> J[Comparar secuencia con contraseña válida]
     J --> K{¿Contraseña correcta?}
     K -- Sí --> L[/Encender LED verde/]
