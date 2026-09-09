@@ -136,6 +136,13 @@ try:
             print("Secuencia actual:", secuencia)
             tiempo_ultima_pulsacion = time.time()
 
+        if len(secuencia) > 6:
+            print("Se excedió el límite de pulsaciones, se cancela la captura")
+            feedback_timeout()
+            secuencia = []
+            tiempo_ultima_pulsacion = None
+            print("Esperando que se presionen los botones...")
+
         if len (secuencia) > 0 and len(secuencia) < 6:
             if tiempo_ultima_pulsacion is not None:
                 tiempo_pasado = time.time() - tiempo_ultima_pulsacion
