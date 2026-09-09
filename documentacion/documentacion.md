@@ -1476,6 +1476,7 @@ Actualmente el sistema permite:
 - [x] Reiniciar automáticamente la secuencia después de cada intento.
 - [x] Cancelar una captura incompleta después de cuatro segundos de inactividad.
 - [x] Permitir un nuevo intento después de un timeout.
+- [x] Detectar y cancelar una captura si el buffer supera el límite máximo de seis pulsaciones.
 - [x] Ejecutar el prototipo de manera continua sin problemas relevantes.
 
 ---
@@ -1501,19 +1502,26 @@ Reproducir tono de pulsación
         ↓
 Actualizar tiempo de última pulsación
         ↓
-¿Se completaron 6 pulsaciones?
+¿La secuencia supera 6 valores?
      ↓ No                     ↓ Sí
-¿Pasaron más de 4 s?       Comparar clave
+Continuar                Cancelar captura
      ↓                        ↓
-   Sí / No              Correcta / Incorrecta
-     ↓                        ↓
-Si Sí: cancelar        LED + sonido correspondiente
-captura                     ↓
-     ↓                 Reiniciar secuencia
-LED + sonido timeout          ↓
-     ↓                 Esperar nueva captura
+¿Se completaron 6?       LED rojo + sonido
+ ↓ No          ↓ Sí           ↓
+¿Pasaron      Comparar     Vaciar secuencia
+más de 4 s?   contraseña      ↓
+ ↓             ↓          Reiniciar control
+Sí / No   Correcta / Incorrecta
+ ↓             ↓
+Si Sí:       LED + sonido
+cancelar     correspondiente
+captura          ↓
+ ↓          Reiniciar secuencia
+LED + sonido     ↓
+timeout     Esperar nueva captura
+ ↓
 Reiniciar secuencia
-     ↓
+ ↓
 Esperar nueva captura
 ```
 
@@ -1602,3 +1610,114 @@ Durante el desarrollo se realizaron las siguientes pruebas:
 - Validación de los distintos tonos del buzzer.
 - Prueba de cancelación después de cuatro segundos de inactividad.
 - Nueva captura después de una cancelación por timeout.
+
+---
+
+## 32. Validación del límite máximo de pulsaciones
+
+Después de implementar la captura de seis pulsaciones y el control de inactividad, se agregó una validación adicional para evitar que el buffer de la secuencia pueda contener más pulsaciones de las permitidas.
+
+La implementación actual trabaja con una contraseña de seis pulsaciones. Por lo tanto, se agregó la siguiente condición:
+
+```python
+if len(secuencia) > 6:
+    print("Se excedió el límite de pulsaciones, se cancela la captura")
+    feedback_timeout()
+    secuencia = []
+    tiempo_ultima_pulsacion = None
+    print("Esperando que se presionen los botones...")
+```
+
+### Funcionamiento de la validación
+
+La lista:
+
+```python
+secuencia = []
+```
+
+almacena los valores correspondientes a los botones presionados.
+
+Normalmente, cuando la lista alcanza exactamente seis elementos, el sistema realiza la validación de la contraseña mediante:
+
+```python
+if len(secuencia) == 6:
+```
+
+Sin embargo, se incorporó una comprobación adicional:
+
+```python
+if len(secuencia) > 6:
+```
+
+Esta condición funciona como una medida de protección para evitar que, ante una situación inesperada de captura, el buffer pueda continuar almacenando valores por encima del límite establecido.
+
+Si la cantidad de valores almacenados supera seis, el programa:
+
+1. Detecta que se excedió el límite permitido.
+2. Muestra el mensaje:
+
+```text
+Se excedió el límite de pulsaciones, se cancela la captura
+```
+
+3. Activa la retroalimentación de error mediante:
+
+```python
+feedback_timeout()
+```
+
+4. Vacía la secuencia mediante:
+
+```python
+secuencia = []
+```
+
+5. Reinicia el control de tiempo:
+
+```python
+tiempo_ultima_pulsacion = None
+```
+
+6. Regresa al estado de espera para comenzar una nueva captura.
+
+### Flujo de la validación
+
+```text
+Registrar pulsación
+        ↓
+Agregar valor a secuencia
+        ↓
+Comprobar cantidad de valores
+        ↓
+¿len(secuencia) > 6?
+     ↓ No               ↓ Sí
+Continuar          Cancelar captura
+     ↓                  ↓
+¿len(secuencia) == 6?   LED rojo + sonido
+     ↓                  ↓
+Validar contraseña      Vaciar secuencia
+                        ↓
+                 Reiniciar temporizador
+                        ↓
+                 Esperar nueva captura
+```
+
+### Objetivo de esta protección
+
+La validación permite mantener controlado el tamaño de la secuencia utilizada por el sistema.
+
+La contraseña configurada actualmente utiliza seis pulsaciones, por lo que cualquier estado en el que el buffer supere esta cantidad se considera inválido y provoca el reinicio de la captura.
+
+Esta comprobación complementa las otras condiciones de reinicio ya implementadas:
+
+- reinicio después de una contraseña correcta;
+- reinicio después de una contraseña incorrecta;
+- reinicio después de superar cuatro segundos de inactividad;
+- reinicio si el buffer supera el máximo de seis pulsaciones.
+
+### Resultado
+
+Con esta modificación se añadió una medida adicional de control sobre la captura.
+
+El sistema mantiene como funcionamiento normal la evaluación al completar seis pulsaciones, pero también cuenta con una protección para cancelar la captura si, por alguna condición inesperada, el buffer llega a superar este límite.
