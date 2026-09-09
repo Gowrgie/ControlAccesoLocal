@@ -9,7 +9,7 @@ El archivo `traceability.md` permite reconstruir **por qué existe un cambio y c
 | Requisito | Issue / Origen | PR / Cambio | Estado actual | Evidencia de validación |
 | :--- | :--- | :--- | :--- | :--- |
 | **RF-01**: Captura, comparación y autorización de acceso | Issue #5 | PR #3 + PR #7 | Cumple | **Demostración**: Los 3 pulsadores físicos capturan la secuencia (PR #3) y el sistema la valida contra `PASSWORD_VALIDA` (PR #7). Al ingresar la clave válida `[1, 2, 3, 1, 2, 3]`, enciende el LED verde (GPIO 23) y emite 3 tonos de 1500 Hz en el buzzer PWM (GPIO 25). Si es incorrecta, activa el LED rojo (GPIO 24) y 3 tonos de 200 Hz. |
-| **RF-02**: Longitud de clave de 6 pulsaciones | Issue #3 / Issue #5 | PR #3 | Cumple (evalúa 6 pulsaciones) | **Demostración**: Pulsadores en GPIO 14, 15 y 18 registran pulsaciones en la lista `secuencia`. Al acumular exactamente 6 pulsaciones (`len(secuencia) == 6`), el sistema bloquea capturas adicionales, imprime el contenido de la secuencia y procede de inmediato a la evaluación. |
+| **RF-02**: Longitud de clave de 6 pulsaciones | Sin Issue específico | PR #3 | Cumple (evalúa 6 pulsaciones) | **Demostración**: Pulsadores en GPIO 14, 15 y 18 registran pulsaciones en la lista `secuencia`. Al acumular exactamente 6 pulsaciones (`len(secuencia) == 6`), el sistema bloquea capturas adicionales, imprime el contenido de la secuencia y procede de inmediato a la evaluación. |
 | **RF-03**: Señalización visual mediante luces LED (verde/rojo) | Issue #1 + Issue #5 | PR #7 | Cumple | **Demostración**: Salidas digitales en GPIO 23 (`LED_VERDE`) y GPIO 24 (`LED_ROJO`). Ante clave correcta, `feedback_correcto()` parpadea 3 veces en verde; ante clave errónea o timeout, `feedback_incorrecto()` / `feedback_timeout()` activan el LED rojo. |
 | **RF-04**: Reinicio automático tras cada captura para nuevos datos | Sin Issue específico | PR #7 + PR #9 | Cumple | **Demostración**: Al concluir la evaluación de la clave (`feedback_correcto`/`feedback_incorrecto` en PR #7) o al cancelarse por timeout (PR #9), se ejecuta `secuencia = []` y `tiempo_ultima_pulsacion = None`, imprimiendo `"Esperando nueva captura"` para reiniciar el ciclo en caliente sin reiniciar el script. |
 | **RF-05**: Cancelación y purga del búfer por inactividad > 4 segundos | Issue #1 | PR #9 | Cumple | **Demostración**: Si transcurren más de 4 segundos sin pulsar botones durante una captura incompleta (1 a 5 pulsaciones), el sistema activa `feedback_timeout()` (LED rojo + tono 300 Hz), muestra mensaje de cancelación, limpia `secuencia = []` y regresa al inicio. |
@@ -63,7 +63,7 @@ A continuación se detalla la justificación técnica, el historial de cambios y
 1. **Necesidad (Requerimiento)**:
    - El sistema capturará una clave de 6 pulsaciones fijas (alineado a la implementación física del prototipo).
 
-2. **Origen / Justificación (Issue #3 / Issue #5)**:
+2. **Origen / Justificación (Sin Issue específico)**:
    - Se requería delimitar la longitud de la secuencia de acceso para brindar suficiente entropía física sin complicar la interacción del usuario sobre el protoboard de 3 botones.
 
 3. **Cambio implementado (PR #3 - `src/Main_code.py`)**:
