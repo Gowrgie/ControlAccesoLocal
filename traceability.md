@@ -16,7 +16,7 @@ El archivo `traceability.md` permite reconstruir **por qué existe un cambio y c
 | **RF-06**: Señal sonora al reiniciar el sistema y permitir nuevo ingreso | Issue #5 | PR #7 | Cumple | **Demostración**: `sonido_inicio_captura()` reproduce un tono de 800 Hz durante 0.15 s en el buzzer (GPIO 25). Se ejecuta al arrancar el programa y tras culminar cada ciclo de evaluación o purga por inactividad. |
 | **RF-07**: Tres tonos cortos de buzzer al evaluar la secuencia | Issue #5 | PR #7 | Cumple | **Demostración**: En `feedback_correcto()`, el buzzer reproduce 3 tonos agudos de 1500 Hz sincronizados con el LED verde. En `feedback_incorrecto()`, reproduce 3 tonos graves de 200 Hz sincronizados con el LED rojo. |
 | **RNF-01**: Prevención de rebote físico del botón (antirrebote / debounce) | Sin Issue específico | PR #3 | Cumple | **Demostración**: Configuración con resistencias internas `GPIO.PUD_UP` y lógica en `revisar_boton()`: bucle de espera mientras el botón está presionado (`while GPIO.input(pin) == GPIO.LOW: time.sleep(0.01)`) y retraso estabilizador de `time.sleep(0.2)`. Cada pulsación física produce un solo registro. |
-| **RNF-02**: Conservación segura de clave administrable | Issue #1 | PR #11 | Pendiente de merge y prueba | **Demostración**: Actualmente la clave reside como constante en `Main_code.py`. PR #11 introduce almacenamiento con hash seguro (SHA-256) en archivo y modificación exclusiva por administrador. PR #11 está en revisión, pendiente de prueba de entrada separada por espacios (`3 2 1 1 2 3`) antes del merge definitivo. |
+| **RNF-02**: Conservación segura de clave administrable | Issue #1 | PR #11 | Cumple | **Demostración**: Almacenamiento seguro de la clave con hash SHA-256 en archivo persistente `password.txt` y modificación exclusiva por administrador mediante `--admin`. La entrada de nueva clave se realiza con dígitos continuos sin espacios (ej. `123123`), convertidos individualmente a enteros para coincidir con la secuencia capturada por los pulsadores físicos. |
 | **RNF-03**: Tiempo de respuesta ≤ 1 segundo tras la última pulsación | Issue #1 | PR #7 / prueba de tiempo | Pendiente de evidencia formal | **Demostración**: La evaluación se dispara en memoria local en cuanto `len(secuencia) == 6`, iniciando el feedback de forma inmediata (< 0.1 s). Se encuentra pendiente instrumentar la medición cronométrica formal con `time.perf_counter()` para asentar la evidencia cuantitativa en el repositorio. |
 
 ---
@@ -46,7 +46,7 @@ A continuación se detalla la justificación técnica, el historial de cambios y
          print("Contraseña incorrecta")
          feedback_incorrecto()
      ```
-   - *Nota de evolución*: En PR #11 (en revisión) se plantea migrar esta comprobación a `if verificar_password(secuencia):`, comparando hashes SHA-256 contra un archivo persistente `password.txt`.
+   - *Evolución*: Con la integración de PR #11 a `main`, esta comprobación se realiza mediante `if verificar_password(secuencia):`, comparando el hash SHA-256 de la secuencia contra el hash almacenado en el archivo persistente `password.txt`.
 
 4. **Evidencia de validación**:
    - **Validación positiva (acceso autorizado)**:
@@ -235,14 +235,16 @@ A continuación se detalla la justificación técnica, el historial de cambios y
 2. **Origen / Justificación (Issue #1)**:
    - Issue #1 definió el almacenamiento seguro de la clave y su restricción a personal administrativo.
 
-3. **Cambio implementado (PR #11 - Rama en desarrollo)**:
-   - En la versión actual de `main`, la clave se almacena en memoria como constante (`PASSWORD_VALIDA = [1, 2, 3, 1, 2, 3]`).
-   - PR #11 implementa el hash SHA-256 en archivo persistente `password.txt` y un menú administrativo para actualización de clave.
-   - *Validación pendiente antes de merge*: Se detectó que el ingreso en PR #11 (`entrada.split()`) requiere ingresar los números separados por espacios (ejemplo: `3 2 1 1 2 3` produce `[3, 2, 1, 1, 2, 3]`; si se ingresa `321123` sin espacios se almacena `[321123]`, ocasionando rechazo en la validación por botones). Una vez validado este flujo en hardware, se procederá al merge en `main`.
+3. **Cambio implementado (PR #11 - `src/Main_code.py`)**:
+   - Se eliminó la clave en texto plano como constante de validación directa y se implementó almacenamiento con hash seguro SHA-256 en el archivo persistente `password.txt`.
+   - Se añadió un modo de administración mediante argumento por consola (`python src/Main_code.py --admin`) protegido por contraseña de administrador (`ADMIN_PASSWORD = "admin123"`).
+   - Se corrigió el formato de entrada de la nueva secuencia para recibir dígitos continuos sin espacios (ej. `123123`), procesados mediante `[int(digito) for digito in entrada]`, asegurando compatibilidad total con la lista de enteros capturada por los pulsadores físicos.
+   - Funciones incorporadas: `calcular_hash(secuencia)`, `guardar_password(secuencia)`, `leer_password_guardada()`, `verificar_password(secuencia)` y `cambiar_password()`.
 
 4. **Evidencia de validación**:
-   - *Procedimiento*: Prueba de cambio de clave administrativa en PR #11 ingresando la nueva secuencia separada por espacios (`3 2 1 1 2 3`) y posterior verificación mediante los pulsadores físicos.
-   - *Estado*: Pendiente de aprobación final y merge de PR #11.
+   - *Procedimiento*: Ejecución del modo administrativo (`python src/Main_code.py --admin`), autenticación con la clave de administrador, ingreso de nueva secuencia en dígitos continuos sin espacios (ej. `123123`) y posterior validación mediante la pulsación de los botones físicos en el prototipo.
+   - *Resultado*: La contraseña se calcula y almacena en hash SHA-256 en `password.txt`. Al reiniciar el sistema e introducir los dígitos correspondientes con los pulsadores físicos, el sistema valida exitosamente la coincidencia de hash (`verificar_password(secuencia)` retorna `True`), otorgando acceso con luz verde y 3 tonos de buzzer.
+   - *Estado*: Cumple (PR #11 fusionado a `main`).
 
 ---
 
