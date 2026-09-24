@@ -23,7 +23,7 @@ CREATE TABLE intentos_acceso (
     id_usuario INT NULL,
     fecha_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     mecanismo ENUM('interfaz_grafica', 'botones') NOT NULL,
-    resultado ENUM('autorizado', 'rechazado', 'error_sistema') NOT NULL,
+    resultado ENUM('autorizado', 'rechazado', 'error_sistema', 'usuario identificado pero sin registro' , 'usuario sin permiso') NOT NULL,
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
 );
 
