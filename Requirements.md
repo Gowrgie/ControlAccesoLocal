@@ -32,7 +32,7 @@ RF-15. Cuando la interfaz gráfica o el monitor no se encuentren disponibles, el
 
 RF-16. Cuando el acceso sea autorizado, el sistema reproducirá por bocina o altavoz el mensaje "Acceso correcto".
 
-RF-17. Cuando el acceso sea autorizado, el sistema activará un mecanismo físico sencillo (servo, relé o equivalente de prototipo) que represente la apertura del acceso y lo regresará a su posición de reposo después de 3 segundos. Con cualquier otro resultado no se activará.
+RF-17. Cuando el acceso sea autorizado, el sistema activaran dos motores que represente la apertura del acceso y lo regresará a su posición de reposo después de 3 segundos. Con cualquier otro resultado no se activará.
 
 RF-18. El sistema regresará a un estado de espera después de completar cada operación, sin importar el resultado ni la interfaz utilizada, quedando listo para detectar una nueva presencia.
 
