@@ -3,9 +3,10 @@ flowchart LR
     U[Usuario]
     A[Administrador]
     S["Sistema de Control de Acceso Local"]
-    U -->|Secuencia de pulsaciones| S
-    S -->|Resultado de acceso| U
-    S -->|Indicador LED y sonido| U
-    A -->|Nueva contraseña| S
-    S -->|Confirmación de cambio| A
+    U -->|Identificación y clave mediante GUI o botones| S
+    S -->|Resultado de validación de acceso| U
+    S -->|Indicadores LED, buzzer y mensajes de audio| U
+    S -->|Activación del mecanismo de acceso autorizado| U
+    A -->|Gestión de usuarios, claves, roles y permisos| S
+    S -->|Confirmación de cambios realizados| A
     ```
