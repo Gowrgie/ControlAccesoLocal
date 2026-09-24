@@ -37,8 +37,22 @@ RF-17. Cuando el acceso sea autorizado, el sistema activará un mecanismo físic
 RF-18. El sistema regresará a un estado de espera después de completar cada operación, sin importar el resultado ni la interfaz utilizada, quedando listo para detectar una nueva presencia.
 
 ## Requerimientos No Funcionales
-RNF-01. El sistema evitara registrar una pulsacion fisica debido al rebote del botón
+RNF-01. El sistema evitará registrar una pulsación física debido al rebote del botón, tanto en la captura del identificador como en la de la clave.
 
-RNF-02. La contraseña válida deberá conservarse de forma segura durante la ejecución del sistema y solo podrá modificarse por el administrador.
+RNF-02. La información de acceso (usuario, clave, rol y permisos) almacenada en la base de datos deberá conservarse de forma segura durante la ejecución del sistema y solo podrá modificarse por el administrador.
 
-RNF-03. El sistema deberá evaluar y presentar la respuesta (aprobado/desaprobado) en un tiempo no mayor a 1 segundo tras capturar el último dígito de la secuencia.
+RNF-03. El sistema deberá evaluar y presentar la respuesta (autorizado/rechazado/falla) en un tiempo no mayor a 1 segundo tras capturar el último dato de la secuencia, ya sea por interfaz gráfica o por botones.
+
+RNF-04. El sensor PIR deberá detectar la presencia de una persona y habilitar la interacción en un tiempo no mayor a 1 segundo.
+
+RNF-05. La interfaz gráfica deberá ser sencilla e intuitiva, de manera que un usuario pueda identificarse y completar la validación sin necesidad de capacitación previa.
+
+RNF-06. La consulta a la base de datos MySQL deberá resolverse en un tiempo no mayor a 2 segundos; superado ese tiempo, el sistema deberá tratarlo como falla en la consulta.
+
+RNF-07. El sistema deberá permitir la operación mediante botones sin requerir reinicio manual cuando la interfaz gráfica o el monitor dejen de estar disponibles.
+
+RNF-08. El mensaje de audio "Acceso correcto" deberá reproducirse con un volumen audible a una distancia mínima de 1 metro del punto de acceso.
+
+RNF-09. Los registros de intentos de acceso almacenados en la base de datos no deberán perderse ni ser alterables desde la interfaz gráfica o de botones, y deberán conservarse disponibles para su consulta posterior.
+
+RNF-10. El sistema deberá procesar una operación de acceso a la vez, evitando que una interacción por interfaz gráfica y otra por botones se validen simultáneamente sobre el mismo mecanismo de apertura.
