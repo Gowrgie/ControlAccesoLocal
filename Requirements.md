@@ -22,7 +22,7 @@ RF-10. El sistema mostrará la interfaz gráfica en un monitor conectado a la Ra
 
 RF-11. El sistema almacenará y consultará la información necesaria en una base de datos MySQL, y registrará cada intento de acceso con fecha y hora, usuario, mecanismo utilizado (interfaz gráfica o botones) y resultado.
 
-RF-12. El sistema identificará a cada usuario dentro del sistema y le asignará uno de al menos dos roles o niveles de acceso (por ejemplo, administrador y usuario general) con permisos diferenciables.
+RF-12. El sistema identificará a cada usuario dentro del sistema y le asignará uno de tres roles (administrador, servicio técnico y usuario general) con permisos diferenciables.
 
 RF-13. El sistema validará el acceso utilizando la información almacenada en la base de datos (usuario, clave, rol y permisos) y distinguirá entre usuario autorizado, usuario autorizado pero sin permiso, información incorrecta o usuario no reconocido y falla en la consulta de la base de datos, sin tratar esta última como un rechazo.
 
