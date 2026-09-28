@@ -1,5 +1,4 @@
 """
-
 Requisitos:
 - tkinter (incluido en Python)
 - mysql-connector-python
@@ -14,6 +13,7 @@ from datetime import datetime
 import sys
 import os
 import atexit
+import subprocess
 
 # Importar RPi.GPIO para sensor PIR
 import RPi.GPIO as GPIO
@@ -32,6 +32,36 @@ try:
 except ImportError:
     print("Advertencia: No se pudo importar db_conexion. Modo prueba desactivado.")
     validar_acceso = None
+
+
+# ============ FUNCIONES DE AUDIO ============
+def reproducir_tono(frecuencia=1000, duracion=0.5):
+    """Genera un tono usando speaker-test."""
+    try:
+        os.system(f'(speaker-test -t sine -f {frecuencia} -l 1 & sleep {duracion}; killall speaker-test) 2>/dev/null &')
+    except:
+        pass
+
+
+def reproducir_sonido_exito():
+    """Reproduce sonido de acceso concedido - dos tonos ascendentes."""
+    reproducir_tono(1000, 0.3)
+    time.sleep(0.1)
+    reproducir_tono(1200, 0.3)
+
+
+def reproducir_sonido_error():
+    """Reproduce sonido de acceso denegado - dos tonos descendentes."""
+    reproducir_tono(600, 0.2)
+    time.sleep(0.1)
+    reproducir_tono(400, 0.2)
+
+
+def reproducir_sonido_alerta():
+    """Reproduce sonido de alerta del sistema."""
+    reproducir_tono(800, 0.25)
+    time.sleep(0.15)
+    reproducir_tono(600, 0.25)
 
 
 class InterfazControlAcceso:
@@ -438,32 +468,40 @@ class InterfazControlAcceso:
                 "simbolo": "[OK]",
                 "titulo": "ACCESO CONCEDIDO",
                 "mensaje": f"Bienvenido\n{self.identificador}",
-                "icono_color": "#27ae60"
+                "icono_color": "#27ae60",
+                "sonido": reproducir_sonido_exito
             },
             "sin_permiso": {
                 "color": self.COLOR_DANGER,
                 "simbolo": "[X]",
                 "titulo": "ACCESO DENEGADO",
                 "mensaje": "Usuario sin permisos",
-                "icono_color": "#e74c3c"
+                "icono_color": "#e74c3c",
+                "sonido": reproducir_sonido_error
             },
             "no_reconocido": {
                 "color": self.COLOR_DANGER,
                 "simbolo": "[X]",
                 "titulo": "ACCESO DENEGADO",
                 "mensaje": "Usuario no reconocido",
-                "icono_color": "#e74c3c"
+                "icono_color": "#e74c3c",
+                "sonido": reproducir_sonido_error
             },
             "error_sistema": {
                 "color": self.COLOR_WARNING,
                 "simbolo": "[!]",
                 "titulo": "ERROR DEL SISTEMA",
                 "mensaje": "Intente mas tarde",
-                "icono_color": "#f39c12"
+                "icono_color": "#f39c12",
+                "sonido": reproducir_sonido_alerta
             }
         }
 
         config = resultados.get(resultado, resultados["no_reconocido"])
+
+        # Reproducir sonido según resultado
+        if "sonido" in config:
+            config["sonido"]()
 
         # Icono grande
         icono = tk.Label(
@@ -542,6 +580,11 @@ def main():
        - Selección de Rol: menú interactivo con mouse/teclado
        - Login: entrada de identificador y contraseña
        - Resultado: muestra resultado durante 4 segundos, luego retorna a Standby
+
+    4. Audio:
+       - Acceso autorizado: tonos ascendentes (1000 Hz + 1200 Hz)
+       - Acceso denegado: tonos descendentes (600 Hz + 400 Hz)
+       - Error del sistema: tonos de alerta (800 Hz + 600 Hz)
     """
     root = tk.Tk()
     app = InterfazControlAcceso(root)
