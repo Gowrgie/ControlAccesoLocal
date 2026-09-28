@@ -28,6 +28,8 @@ Para la creación del sistema se utilizaron los siguientes elementos:
 - 7 Cables jumper.
 - 3 Cables rígidos para protoboard
 - 3 Botones físicos.
+- Sensor PIR
+- Servo motor
 
 Posteriormente, conforme avanzó el desarrollo, también se incorporaron:
 
@@ -35,6 +37,13 @@ Posteriormente, conforme avanzó el desarrollo, también se incorporaron:
 - 3 Resistencias de 220 Ω
 - 1 LED rojo.
 - 1 Buzzer.
+
+Para la etapa 2 se agregaron 
+
+- 5 jummper, de ellos 3 adaptados con soldadura
+- Sensor PIR
+- Servo motor
+- Dispositivo con pantalla y teclado en este caso computadora
 
 Estos componentes se fueron agregando de manera progresiva de acuerdo con las necesidades del prototipo.
 
@@ -1723,3 +1732,478 @@ Esta comprobación complementa las otras condiciones de reinicio ya implementada
 Con esta modificación se añadió una medida adicional de control sobre la captura.
 
 El sistema mantiene como funcionamiento normal la evaluación al completar seis pulsaciones, pero también cuenta con una protección para cancelar la captura si, por alguna condición inesperada, el buffer llega a superar este límite.
+
+# Etapa 2 Interfaz y acceso físico
+## Para esta etapa ya se utilizan:
+
+- Raspberry Pi 5.
+- Monitor.
+- Teclado.
+- Mouse.
+- Fuente de alimentación.
+- Conexión de red.
+- 1 Protoboard.
+- 13 Cables jumper y cables adaptados mediante soldadura.
+- 3 Cables rígidos para protoboard
+- 3 Botones físicos.
+- 1 LED verde.
+- 3 Resistencias de 220 Ω
+- 1 LED rojo.
+- 1 Buzzer.
+- Sensor PIR.
+- Servo motor.
+- Dispositivo con pantalla en este caso computadora.
+
+## 33. Instalación de MySQL Server y conexión desde Python
+
+Después de validar la lectura de los botones, se instaló MySQL Server en la Raspberry Pi para almacenar los usuarios, roles, permisos e intentos de acceso.
+
+También se instaló el conector de Python:
+
+```bash
+sudo apt update
+sudo apt install mysql-server
+```
+
+Dentro del entorno virtual del proyecto se instaló:
+
+```bash
+python -m pip install mysql-connector-python
+```
+
+La conexión se implementó en `scripts_db/db_conexion.py`. Este archivo centraliza:
+
+- la conexión con MySQL;
+- la búsqueda de usuarios;
+- la comprobación de credenciales;
+- la consulta de roles y permisos;
+- el registro de cada intento de acceso.
+
+La aplicación utiliza un usuario específico de MySQL con permisos limitados para consultar usuarios y registrar intentos.
+
+El flujo de comunicación quedó establecido de la siguiente manera:
+
+```text
+Botones o interfaz gráfica
+        ↓
+Programa principal
+        ↓
+db_conexion.py
+        ↓
+MySQL Server
+        ↓
+Usuario, rol, permisos y resultado
+```
+
+La base de datos no controla directamente los GPIO. El programa recibe la respuesta de MySQL y, según el resultado, activa los componentes físicos correspondientes.
+
+---
+
+## 34. Integración del sensor PIR
+
+Después de completar las pruebas de los botones, se incorporó un sensor PIR para detectar la presencia de una persona antes de iniciar un intento de acceso.
+
+El sensor se conectó mediante tres cables:
+
+- alimentación;
+- tierra;
+- señal de salida.
+
+La señal del sensor se conectó al:
+
+| Función | GPIO BCM |
+|---|---:|
+| Señal del sensor PIR | GPIO27 |
+
+Para realizar la conexión se utilizaron cables jumper hembra-hembra. Debido a que no se contaba con suficientes cables del tipo requerido, se adaptaron algunos cables macho-hembra: se pelaron, se soldaron y posteriormente se cubrieron con cinta aislante para proteger las uniones y evitar cortocircuitos.
+
+La conexión general quedó representada así:
+
+```text
+Sensor PIR
+├── VCC  → alimentación compatible
+├── GND  → tierra de la Raspberry Pi
+└── OUT  → GPIO27
+```
+
+La salida del PIR es digital:
+
+```text
+HIGH → presencia o movimiento detectado
+LOW  → sensor en reposo
+```
+
+El programa consulta periódicamente el estado del GPIO27 y actualiza el estado del sistema.
+
+---
+
+## 35. Pruebas iniciales del sensor PIR
+
+Antes de integrar el sensor al sistema completo, se realizaron pruebas independientes para comprobar que enviara correctamente la señal de salida.
+
+Durante las primeras pruebas, el sensor PIR no producía los resultados esperados. Se verificaron:
+
+- alimentación;
+- conexión de tierra;
+- cable de señal;
+- GPIO utilizado;
+- lectura del estado HIGH y LOW;
+- tiempo de activación;
+- sensibilidad del sensor.
+
+También se conectó temporalmente un LED para comprobar visualmente si el sensor estaba generando una señal al detectar movimiento.
+
+Después de varias pruebas se determinó que el problema no estaba en el programa ni en la configuración de los GPIO, sino en el sensor PIR utilizado. Se sustituyó por otro sensor y la detección comenzó a funcionar correctamente.
+
+Una vez reemplazado el sensor, se ajustaron:
+
+- el tiempo de activación;
+- la sensibilidad;
+- el comportamiento de salida después de detectar movimiento.
+
+Estas pruebas permitieron confirmar que el sensor podía utilizarse como señal de inicio del sistema.
+
+---
+
+## 36. Comportamiento del PIR dentro del sistema
+
+El sensor PIR se utiliza como condición previa para comenzar una captura.
+
+Al iniciar el programa, el sistema espera aproximadamente 30 segundos para permitir la estabilización del sensor. Después comprueba que el PIR se encuentre en reposo.
+
+Cuando detecta presencia:
+
+```text
+PIR en HIGH
+        ↓
+Se habilita el sistema
+        ↓
+Se permite utilizar la interfaz o los botones
+```
+
+La presencia permanece habilitada durante aproximadamente cuatro segundos después de que el sensor vuelve a LOW. Esto permite que el usuario se acerque, espere la indicación y comience la captura sin que el sistema se bloquee inmediatamente al dejar de detectar movimiento.
+
+Una vez que se inicia una captura, esta continúa aunque el PIR vuelva a LOW. La captura cuenta con su propio límite de cuatro segundos entre pulsaciones.
+
+---
+
+## 37. Integración del PIR con el sistema de botones
+
+Después de confirmar que el sensor PIR funcionaba de forma independiente, se integró con el programa de los botones físicos.
+
+El flujo quedó establecido así:
+
+```text
+Sistema inicia
+        ↓
+Estabilización del PIR
+        ↓
+PIR en reposo
+        ↓
+Espera de movimiento
+        ↓
+PIR detecta presencia
+        ↓
+Se emite una señal de inicio
+        ↓
+Se habilita la captura del identificador
+        ↓
+Se capturan los botones 1, 2 y 3
+```
+
+El programa continúa utilizando la configuración pull-up de los botones:
+
+```text
+Botón sin presionar → HIGH
+Botón presionado    → LOW
+```
+
+De esta forma, el PIR determina cuándo puede comenzar una captura y los botones proporcionan los valores que forman el identificador y la contraseña.
+
+---
+
+## 38. Integración del servo motor
+
+Después de validar el funcionamiento del PIR y los botones, se incorporó un servo motor para representar el mecanismo de apertura del acceso.
+
+La señal de control del servo se conectó al:
+
+| Función | GPIO BCM |
+|---|---:|
+| Señal del servo | GPIO26 |
+
+El servo se controla mediante la biblioteca `lgpio`, utilizando pulsos de control:
+
+| Estado | Pulso aproximado | Posición |
+|---|---:|---:|
+| Acceso rechazado | 1000 μs | 0° |
+| Posición de reposo | 1500 μs | 90° |
+| Acceso autorizado | 2000 μs | 180° |
+
+El GPIO solamente envía la señal de control. La alimentación del servo debe provenir de una fuente adecuada y compartir tierra con la Raspberry Pi.
+
+---
+
+## 39. Problema inicial con el control del servo
+
+Durante las primeras pruebas de integración se presentaron problemas relacionados con la forma de enviar las señales al servo.
+
+El servo no siempre respondía a las posiciones esperadas. Se revisaron:
+
+- el GPIO de señal;
+- la inicialización del controlador;
+- la frecuencia de los pulsos;
+- el ancho de pulso;
+- la posición inicial;
+- la alimentación del servo;
+- la tierra común entre la Raspberry Pi y el circuito.
+
+Después de ajustar la forma de generar los pulsos mediante `lgpio`, el servo pudo moverse de manera controlada.
+
+Se configuró una posición inicial de reposo de aproximadamente 90 grados.
+
+El comportamiento final quedó definido de la siguiente manera:
+
+```text
+Acceso autorizado
+        ↓
+Servo a 180°
+        ↓
+Espera de 3 segundos
+        ↓
+Servo vuelve a 90°
+
+Acceso rechazado
+        ↓
+Servo a 0°
+        ↓
+Indicación de rechazo
+        ↓
+Servo vuelve a 90°
+```
+
+---
+
+## 40. Integración de LED y buzzer con los resultados
+
+El sistema utiliza los indicadores físicos para informar el resultado del intento.
+
+| Resultado | LED | Buzzer | Servo |
+|---|---|---|---|
+| Acceso autorizado | Verde | Tres pitidos cortos | 180° durante 3 segundos |
+| Usuario sin permiso | Rojo | Tres pitidos cortos | 0° |
+| Usuario no reconocido | Rojo | Tres pitidos cortos | 0° |
+| Error del sistema | Rojo | Tono largo | Permanece o vuelve a reposo |
+
+El LED verde conectado al GPIO23 representa una autorización.
+
+El LED rojo conectado al GPIO24 representa un rechazo, una falta de permisos o un error del sistema.
+
+El buzzer conectado al GPIO25 genera señales cortas para confirmar pulsaciones y señales diferenciadas para los resultados.
+
+---
+
+## 41. Integración con la interfaz gráfica
+
+Después de integrar el PIR, los botones, los indicadores y el servo, se incorporó la interfaz gráfica al mismo programa.
+
+Anteriormente existían dos programas separados:
+
+- `interfaz.py`, encargado de la ventana y la validación gráfica;
+- `Main_code.py`, encargado de botones, PIR y hardware.
+
+El problema de mantenerlos separados era que ambos intentaban utilizar los mismos GPIO y podían bloquearse entre sí.
+
+Por ese motivo se unificaron en un solo programa, `PI2.1.py`.
+
+El programa unificado permite:
+
+- utilizar la interfaz gráfica;
+- utilizar los botones físicos;
+- consultar la misma base de datos;
+- activar el mismo servo;
+- utilizar los mismos LEDs;
+- utilizar el mismo buzzer;
+- registrar el método utilizado en cada intento.
+
+El diseño visual original de la interfaz se conservó.
+
+---
+
+## 42. Funcionamiento de los dos métodos de acceso
+
+Al detectar movimiento, el sistema habilita dos métodos posibles:
+
+```text
+PIR detecta presencia
+        ↓
+Interfaz disponible
+        ↓
+Botones físicos disponibles
+```
+
+El primer método que comienza a recibir datos reserva el intento actual.
+
+Si el usuario empieza a escribir en la interfaz:
+
+```text
+Interfaz gráfica activa
+        ↓
+Botones físicos ignorados durante ese intento
+```
+
+Si el usuario pulsa un botón:
+
+```text
+Botones físicos activos
+        ↓
+La interfaz no mezcla datos con la captura física
+```
+
+Cuando el intento termina, se muestra el resultado, se registra en MySQL y el sistema vuelve al estado de espera.
+
+---
+
+## 43. Captura del identificador y la contraseña
+
+El acceso físico utiliza dos partes:
+
+```text
+Identificador: 4 pulsaciones
+Contraseña: 4 a 6 pulsaciones
+```
+
+Ejemplo:
+
+```text
+Identificador: 1111
+Contraseña:    123123
+```
+
+Los botones se convierten en valores:
+
+```text
+GPIO14 → 1
+GPIO15 → 2
+GPIO18 → 3
+```
+
+El programa almacena los valores en dos búferes separados:
+
+```text
+Búfer del identificador
+Búfer de la contraseña
+```
+
+Al completar los cuatro dígitos del identificador, la siguiente pulsación comienza la contraseña.
+
+Se implementó control de rebote y se exige que el botón sea liberado antes de registrar otra pulsación. Las pulsaciones simultáneas se ignoran para evitar formar una secuencia ambigua.
+
+---
+
+## 44. Validación de roles y permisos
+
+La interfaz permite elegir entre:
+
+- usuario general;
+- servicio técnico;
+- administrador.
+
+Después de capturar el identificador y la contraseña, el programa consulta MySQL.
+
+El sistema compara:
+
+- las credenciales;
+- el rol registrado;
+- el rol seleccionado en la interfaz;
+- el permiso de apertura;
+- el permiso de administración.
+
+Los usuarios generales y de servicio técnico solo pueden acceder mediante su rol correspondiente.
+
+El administrador puede utilizar las opciones disponibles siempre que tenga permiso de apertura.
+
+Si el usuario existe, pero el rol seleccionado no coincide o no tiene permiso de apertura, el resultado se registra como:
+
+```text
+sin_permiso
+```
+
+---
+
+## 45. Pruebas de integración realizadas
+
+Después de integrar los componentes se realizaron pruebas progresivas:
+
+- prueba del sensor PIR con el primer sensor;
+- sustitución del sensor PIR que no funcionaba;
+- prueba del sensor PIR con un LED;
+- ajuste del tiempo y la sensibilidad del PIR;
+- prueba del PIR conectado al sistema de botones;
+- detección independiente de los tres botones;
+- captura de identificadores;
+- captura de contraseñas;
+- prueba de rebote y liberación de botones;
+- prueba de timeout después de cuatro segundos;
+- prueba del servo en posición de reposo;
+- prueba del servo ante autorización;
+- prueba del servo ante rechazo;
+- prueba de LED verde;
+- prueba de LED rojo;
+- prueba del buzzer;
+- prueba de conexión con MySQL;
+- prueba de usuarios con permiso;
+- prueba de usuarios sin permiso;
+- prueba de usuario no reconocido;
+- prueba desde la interfaz gráfica;
+- prueba mediante botones físicos;
+- prueba de coordinación de ambos métodos;
+- prueba del funcionamiento físico sin interfaz gráfica.
+
+---
+
+## 46. Resultado final del trabajo de hardware
+
+El sistema evolucionó desde una prueba individual con un botón hasta un prototipo integrado de control de acceso.
+
+Actualmente la Raspberry Pi:
+
+1. espera a que el sensor PIR se estabilice;
+2. detecta la presencia de una persona;
+3. habilita la interfaz y los botones;
+4. captura el identificador y la contraseña;
+5. envía los datos al módulo de conexión;
+6. recibe la respuesta de MySQL;
+7. determina si el acceso se autoriza;
+8. activa el LED y el buzzer correspondientes;
+9. mueve el servo según el resultado;
+10. registra el intento;
+11. vuelve al estado de espera.
+
+El recorrido físico y lógico puede resumirse así:
+
+```text
+Sensor PIR
+        ↓
+GPIO27
+        ↓
+Programa unificado
+        ↓
+Interfaz o botones
+        ↓
+Identificador y contraseña
+        ↓
+MySQL Server
+        ↓
+Resultado de permisos
+        ↓
+GPIO23 / GPIO24 / GPIO25
+        ↓
+LED y buzzer
+        ↓
+GPIO26
+        ↓
+Servo de apertura
+```
+
+Con esta integración, el equipo de hardware dejó preparado el circuito para que el acceso pueda realizarse tanto mediante la interfaz gráfica como mediante los botones físicos, utilizando una única lógica de validación y una única respuesta física de apertura.
