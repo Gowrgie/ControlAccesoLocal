@@ -22,7 +22,7 @@ Este archivo relaciona los requerimientos del sistema con los cambios realizados
 | RF-14 | #5, #39 | PR #3, #38 | Los botones físicos permiten ingresar la clave utilizando la misma lógica de validación empleada por la interfaz gráfica. |
 | RF-15 | #23, #24 | PR #37 | Si la interfaz gráfica o el monitor no están disponibles, el acceso puede completarse mediante los botones físicos. |
 | RF-16 | #23, #24 | PR #37 | Cuando el acceso es autorizado, el sistema reproduce el mensaje de audio "Acceso correcto". |
-| RF-17 | #23, #24 | PR #37 | Al autorizar el acceso se activan dos motores y, después de 3 segundos, ambos regresan a su posición de reposo. |
+| RF-17 | #23, #24 | PR #37 | Al autorizar el acceso se activa un motor y, después de 3 segundos, ambos regresan a su posición de reposo. |
 | RF-18 | #5, #24 | PR #9, #37 | Después de cada operación el sistema regresa al estado de espera, sin importar el resultado o método de captura utilizado. |
 
 ## Requerimientos no funcionales
