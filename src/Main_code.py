@@ -206,6 +206,15 @@ def feedback_falla():  # RF-07
     time.sleep(0.15)
     reproducir_tono(600, 0.25)
 
+def feedback_falla():
+    GPIO.output(LED_ROJO, GPIO.HIGH)
+    reproducir_tono(200, 1.0)
+    GPIO.output(LED_ROJO, GPIO.LOW)
+
+
+def capturar_secuencia(largo_min, largo_max, tiempo_limite=TIEMPO_LIMITE_INACTIVIDAD):
+    secuencia = []
+    tiempo_ultima_pulsacion = None
 
 def captura_timeout():  # RF-05
     print("Pasaron 4 segundos sin actividad, se cancela la captura")
