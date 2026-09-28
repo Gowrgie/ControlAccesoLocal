@@ -2,7 +2,7 @@ import mysql.connector
 from datetime import datetime
 
 DB_HOST = "localhost"
-DB_USER = "root"
+DB_USER = "control_acceso"
 DB_PASSWORD = "12345678"
 DB_NAME = "control_acceso"
 
