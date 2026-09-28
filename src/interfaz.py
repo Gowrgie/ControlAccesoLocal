@@ -62,7 +62,7 @@ class InterfazControlAcceso:
         self.rol_seleccionado = None
         self.identificador = ""
         self.contrasena = ""
-        self.pir_activo = False
+        self.pir_activo = False  # Bandera para rastrear si hay movimiento
         self.timeout_pir = 30  # segundos de inactividad
         self.ultimo_movimiento = time.time()
 
@@ -100,7 +100,7 @@ class InterfazControlAcceso:
                 f.write(LOCK_IDENTIFIER)
             print(f"Lock creado: {LOCK_FILE}")
         except Exception as e:
-            print(f"⚠ Error al crear lock: {e}")
+            print(f"Advertencia: Error al crear lock: {e}")
 
     def limpiar_lock(self):
         """Elimina el archivo lock al cerrar."""
@@ -124,6 +124,7 @@ class InterfazControlAcceso:
     def mostrar_standby(self):
         """Pantalla inicial con sensor PIR - Wireframe: 01_standby.png"""
         self.limpiar_frame()
+        self.pir_activo = False  # Reiniciar estado del PIR
 
         # Frame principal centrado
         frame = ttk.Frame(self.main_frame)
@@ -165,38 +166,59 @@ class InterfazControlAcceso:
             width=3
         )
 
-        # Instrucción
-        instruccion = tk.Label(
+        # Instrucción (se actualiza cuando se detecta movimiento)
+        self.instruccion_label = tk.Label(
             frame,
-            text="Acérquese para continuar\n(o presione cualquier botón)",
+            text="Acérquese para continuar",
             font=("Helvetica", 12),
             fg=self.COLOR_TEXT,
             bg=self.COLOR_BG,
             justify=tk.CENTER
         )
-        instruccion.pack(pady=30)
+        self.instruccion_label.pack(pady=30)
 
-        # Simular detección de movimiento del PIR
-        self.simular_pir()
+        # Vincular tecla espacio (solo funcionará si PIR está activo)
+        self.root.bind("<space>", self.validar_entrada_space)
 
-        # Permitir inicio manual (para demostración)
-        self.root.bind("<space>", lambda e: self.mostrar_seleccion_rol())
+        # Iniciar lectura del sensor PIR
+        self.leer_pir()
 
-    def simular_pir(self):
-        """Lee el sensor PIR real"""
+    def leer_pir(self):
+        """Lee continuamente el sensor PIR real"""
         # Leer estado del GPIO 27 (HIGH=1 cuando detecta movimiento)
         movimiento_detectado = GPIO.input(PIR_PIN) == GPIO.HIGH
 
-        # Actualizar interfaz según detección
+        # Actualizar estado interno y interfaz
         if movimiento_detectado:
+            self.pir_activo = True
             self.pir_canvas.itemconfig(self.pir_circulo, fill=self.COLOR_SUCCESS)
             self.pir_label.config(text="Presencia detectada", fg=self.COLOR_SUCCESS)
+            self.instruccion_label.config(
+                text="Presencia detectada\nPresione ESPACIO para continuar",
+                fg=self.COLOR_SUCCESS
+            )
         else:
+            self.pir_activo = False
             self.pir_canvas.itemconfig(self.pir_circulo, fill="#d0d0d0")
             self.pir_label.config(text="Detectando presencia...", fg=self.COLOR_WARNING)
+            self.instruccion_label.config(
+                text="Acérquese para continuar",
+                fg=self.COLOR_TEXT
+            )
 
-        # Continuar lectura
-        self.root.after(500, self.simular_pir)
+        # Continuar lectura cada 500ms
+        self.root.after(500, self.leer_pir)
+
+    def validar_entrada_space(self, event):
+        """Valida si se puede avanzar al presionar espacio"""
+        if not self.pir_activo:
+            # No hay movimiento detectado
+            self.pir_label.config(text="Acérquese, por favor", fg=self.COLOR_DANGER)
+            return "break"  # Ignorar el evento
+
+        # Si hay movimiento, avanzar
+        self.mostrar_seleccion_rol()
+        return "break"
 
     # ============ PANTALLA DE SELECCIÓN DE ROL ============
     def mostrar_seleccion_rol(self):
@@ -257,7 +279,7 @@ class InterfazControlAcceso:
         # Botón Atrás
         btn_atras = tk.Button(
             frame,
-            text="← Atrás",
+            text="<- Atras",
             font=("Helvetica", 10),
             bg="#95a5a6",
             fg="white",
@@ -298,7 +320,7 @@ class InterfazControlAcceso:
         # Determinar etiqueta según rol
         rol_texto = {
             "student": "ESTUDIANTE",
-            "technical": "SERVICIO TÉCNICO",
+            "technical": "SERVICIO TECNICO",
             "admin": "ADMINISTRADOR"
         }
 
@@ -344,7 +366,7 @@ class InterfazControlAcceso:
             input_frame,
             font=("Helvetica", 14),
             width=20,
-            show="•"
+            show="*"
         )
         self.entry_pass.grid(row=1, column=1, padx=10, pady=10)
 
@@ -413,28 +435,28 @@ class InterfazControlAcceso:
         resultados = {
             "autorizado": {
                 "color": self.COLOR_SUCCESS,
-                "emoji": "[OK]",
+                "simbolo": "[OK]",
                 "titulo": "ACCESO CONCEDIDO",
                 "mensaje": f"Bienvenido\n{self.identificador}",
                 "icono_color": "#27ae60"
             },
             "sin_permiso": {
                 "color": self.COLOR_DANGER,
-                "emoji": "[X]",
+                "simbolo": "[X]",
                 "titulo": "ACCESO DENEGADO",
                 "mensaje": "Usuario sin permisos",
                 "icono_color": "#e74c3c"
             },
             "no_reconocido": {
                 "color": self.COLOR_DANGER,
-                "emoji": "[X]",
+                "simbolo": "[X]",
                 "titulo": "ACCESO DENEGADO",
                 "mensaje": "Usuario no reconocido",
                 "icono_color": "#e74c3c"
             },
             "error_sistema": {
                 "color": self.COLOR_WARNING,
-                "emoji": "[!]",
+                "simbolo": "[!]",
                 "titulo": "ERROR DEL SISTEMA",
                 "mensaje": "Intente mas tarde",
                 "icono_color": "#f39c12"
@@ -446,7 +468,7 @@ class InterfazControlAcceso:
         # Icono grande
         icono = tk.Label(
             frame,
-            text=config["emoji"],
+            text=config["simbolo"],
             font=("Helvetica", 100, "bold"),
             fg=config["icono_color"],
             bg=self.COLOR_BG
@@ -490,6 +512,9 @@ class InterfazControlAcceso:
     # ============ UTILIDADES ============
     def limpiar_frame(self):
         """Limpia el contenido del frame principal"""
+        # Desvinculary evento de espacio
+        self.root.unbind("<space>")
+
         for widget in self.main_frame.winfo_children():
             widget.destroy()
 
@@ -506,10 +531,17 @@ def main():
        - Al cerrar: eliminar /tmp/control_acceso.lock
        - Si el lock contiene "interfaz_grafica", esperar o abortar
 
-    2. Sensor PIR:
+    2. Sensor PIR Real:
        - Requiere RPi.GPIO instalado
        - Lee el GPIO 27 (sensor PIR real)
        - El sensor PIR debe estar conectado a GPIO 27
+       - Solo permite avanzar si hay detección activa de movimiento
+
+    3. Flujo de seguridad:
+       - Standby: requiere movimiento PIR detectado + tecla ESPACIO
+       - Selección de Rol: menú interactivo con mouse/teclado
+       - Login: entrada de identificador y contraseña
+       - Resultado: muestra resultado durante 4 segundos, luego retorna a Standby
     """
     root = tk.Tk()
     app = InterfazControlAcceso(root)
