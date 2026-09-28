@@ -252,11 +252,11 @@ class InterfazControlAcceso:
         botones_frame = ttk.Frame(frame)
         botones_frame.pack(pady=40, fill=tk.BOTH, expand=True)
 
-        # Botón Estudiante
+        # Botón Usuario General
         self.crear_boton_rol(
             botones_frame,
-            "ESTUDIANTE",
-            "student",
+            "USUARIO GENERAL",
+            "general",
             0
         )
 
@@ -319,7 +319,7 @@ class InterfazControlAcceso:
 
         # Determinar etiqueta según rol
         rol_texto = {
-            "student": "ESTUDIANTE",
+            "general": "USUARIO GENERAL",
             "technical": "SERVICIO TECNICO",
             "admin": "ADMINISTRADOR"
         }
