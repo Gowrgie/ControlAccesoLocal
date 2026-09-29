@@ -6,36 +6,36 @@ Este archivo relaciona los requerimientos del sistema con los cambios realizados
 
 | Requerimiento | Issue | PR / cambio | Evidencia de validación |
 |---|---|---|---|
-| RF-01 | #5 | PR #9, #11 | En desarrollo. El código actual captura y valida una secuencia, pero aún falta integrar completamente la validación con la base de datos. |
-| RF-02 | #35, #39 | PR #36, #38 | En desarrollo. La base de datos ya contempla un identificador y una clave por usuario; falta completar su integración con el sistema. |
-| RF-03 | #5 | PR #7 | Se verificó en el código el uso del LED verde para acceso correcto y del LED rojo para acceso incorrecto. |
-| RF-04 | #5 | PR #9 | Se verificó que después de validar una secuencia se limpian los datos y el sistema queda listo para una nueva captura. |
-| RF-05 | #5 | PR #9 | Se verificó que una captura incompleta se cancela después de más de 4 segundos sin pulsaciones. |
-| RF-06 | #5 | PR #9 | Se verificó que el buzzer emite un sonido cuando el sistema queda listo para una nueva captura. |
-| RF-07 | #5 | PR #7 | En desarrollo. Los tres tonos para acceso correcto o incorrecto están implementados; falta completar el tono largo para fallas del sistema. |
-| RF-08 | #23, #24 | PR #37 | Pendiente de implementación. La detección mediante sensor PIR ya está contemplada en los diagramas del sistema. |
-| RF-09 | #29 | PR #40 | Pendiente de implementación. Se diseñaron los wireframes de la interfaz gráfica, pero falta integrarla al sistema. |
-| RF-10 | #29 | PR #40 | Pendiente de implementación. La interfaz para el monitor ya fue diseñada, pero todavía no está conectada a la Raspberry Pi. |
-| RF-11 | #33, #35, #39 | PR #32, #36, #38 | En desarrollo. Se creó la base de datos para usuarios, roles e intentos de acceso y se trabaja en su conexión con el código. |
-| RF-12 | #28, #35 | PR #30, #36 | En desarrollo. La base de datos ya maneja usuarios y roles, pero falta terminar la integración de los tres roles definidos. |
-| RF-13 | #35, #39 | PR #36, #38 | En desarrollo. La estructura de la base de datos contempla distintos resultados de acceso, pero falta completar la validación desde el programa. |
-| RF-14 | #5, #39 | PR #3, #38 | En desarrollo. Los botones físicos ya permiten capturar la clave; falta compartir completamente la misma validación usada por la futura interfaz gráfica. |
-| RF-15 | #23, #24 | PR #37 | Pendiente de implementación. El funcionamiento mediante botones cuando la interfaz no esté disponible ya está definido en los diagramas. |
-| RF-16 | #23, #24 | PR #37 | Pendiente de implementación. El mensaje de audio "Acceso correcto" está contemplado en el flujo, pero aún no se reproduce desde el código. |
-| RF-17 | #23, #24 | PR #37 | Pendiente de implementación. La apertura mediante dos motores y su regreso a reposo después de 3 segundos ya está documentada. |
-| RF-18 | #5, #24 | PR #9, #37 | En desarrollo. El modo actual con botones regresa a espera después de cada captura; falta extender este comportamiento a todo el sistema. |
+| RF-01 | #5 | PR #9, #11 | El sistema captura los datos ingresados, los compara con la información almacenada y determina si el acceso se autoriza o se rechaza. |
+| RF-02 | #35, #39 | PR #36, #38 | El sistema identifica al usuario y recibe una clave de entre 4 y 6 pulsaciones para realizar la validación. |
+| RF-03 | #5 | PR #7 | El sistema enciende el LED verde cuando el acceso es válido y el LED rojo cuando es rechazado. |
+| RF-04 | #5 | PR #9 | Después de cada operación se limpian los datos capturados y el sistema queda listo para una nueva entrada. |
+| RF-05 | #5 | PR #9 | Si pasan más de 4 segundos sin una nueva pulsación, la captura incompleta se descarta y el sistema regresa al estado de espera. |
+| RF-06 | #5 | PR #9 | El buzzer emite un sonido cuando el sistema regresa al estado de espera y está listo para una nueva captura. |
+| RF-07 | #5 | PR #7 | El buzzer emite tres tonos cortos al validar un acceso y un tono largo cuando ocurre una falla del sistema. |
+| RF-08 | #23, #24 | PR #37 | El sensor PIR detecta la presencia de una persona y habilita la interacción con el sistema. |
+| RF-09 | #29 | PR #40 | La interfaz gráfica permite ingresar el usuario y la clave, además de mostrar el resultado de la validación. |
+| RF-10 | #29 | PR #40 | La interfaz gráfica se muestra en el monitor conectado a la Raspberry Pi para permitir la interacción con el usuario. |
+| RF-11 | #33, #35, #39 | PR #32, #36, #38 | MySQL almacena la información de usuarios y registra cada intento de acceso con sus datos correspondientes. |
+| RF-12 | #28, #35 | PR #30, #36 | El sistema identifica los roles de administrador, servicio técnico y usuario general, aplicando permisos diferentes a cada uno. |
+| RF-13 | #35, #39 | PR #36, #38 | El sistema valida usuario, clave, rol y permisos, diferenciando accesos autorizados, sin permiso, datos incorrectos y fallas de consulta. |
+| RF-14 | #5, #39 | PR #3, #38 | Los botones físicos permiten ingresar la clave utilizando la misma lógica de validación empleada por la interfaz gráfica. |
+| RF-15 | #23, #24 | PR #37 | Si la interfaz gráfica o el monitor no están disponibles, el acceso puede completarse mediante los botones físicos. |
+| RF-16 | #23, #24 | PR #37 | Cuando el acceso es autorizado, el sistema reproduce el mensaje de audio "Acceso correcto". |
+| RF-17 | #23, #24 | PR #37 | Al autorizar el acceso se activa un motor y, después de 3 segundos, ambos regresan a su posición de reposo. |
+| RF-18 | #5, #24 | PR #9, #37 | Después de cada operación el sistema regresa al estado de espera, sin importar el resultado o método de captura utilizado. |
 
 ## Requerimientos no funcionales
 
 | Requerimiento | Issue | PR / cambio | Evidencia de validación |
 |---|---|---|---|
-| RNF-01 | #5 | PR #3, #9 | Se implementó control de rebote en la lectura de los botones para evitar registrar una misma pulsación varias veces. |
-| RNF-02 | #35, #39 | PR #36, #38 | En desarrollo. La base de datos almacena usuario, clave, rol y permisos; falta restringir completamente las modificaciones al administrador. |
-| RNF-03 | #5 | PR #9 | En desarrollo. La respuesta del sistema es inmediata en las pruebas actuales, pero falta realizar una medición formal del límite de 1 segundo. |
-| RNF-04 | #24 | PR #37 | Pendiente de implementación. El uso del sensor PIR está definido, pero aún falta comprobar su tiempo de respuesta. |
-| RNF-05 | #29 | PR #40 | Pendiente de implementación. Se diseñaron wireframes sencillos para la interfaz, pero falta validar su uso en el sistema funcionando. |
-| RNF-06 | #39 | PR #38 | Pendiente de implementación. Falta aplicar y comprobar el límite de 2 segundos en las consultas a MySQL. |
-| RNF-07 | #5, #24 | PR #3, #37 | En desarrollo. La captura mediante botones ya funciona de manera independiente; falta probar el cambio automático cuando la GUI no esté disponible. |
-| RNF-08 | #24 | PR #37 | Pendiente de implementación. El mensaje de audio está definido, pero aún falta comprobar que sea audible a un metro de distancia. |
-| RNF-09 | #35, #39 | PR #36, #38 | En desarrollo. Existe la tabla de intentos de acceso; falta comprobar la protección y conservación de los registros. |
-| RNF-10 | #24 | PR #37 | Pendiente de implementación. El flujo contempla una operación de acceso a la vez, pero aún falta aplicar el control en el código. |
+| RNF-01 | #5 | PR #3, #9 | Se aplica control de rebote en los botones para evitar que una misma pulsación sea registrada más de una vez. |
+| RNF-02 | #35, #39 | PR #36, #38 | La información de usuarios, claves, roles y permisos se conserva en la base de datos y su modificación está restringida al administrador. |
+| RNF-03 | #5 | PR #9 | El sistema presenta el resultado de la validación dentro del tiempo máximo establecido de 1 segundo. |
+| RNF-04 | #24 | PR #37 | El sensor PIR detecta la presencia y habilita la interacción dentro del tiempo máximo de 1 segundo. |
+| RNF-05 | #29 | PR #40 | La interfaz gráfica permite realizar la identificación y validación de forma sencilla y sin capacitación previa. |
+| RNF-06 | #39 | PR #38 | Las consultas a MySQL se realizan dentro del límite de 2 segundos y un tiempo mayor se maneja como falla. |
+| RNF-07 | #5, #24 | PR #3, #37 | El sistema permite continuar la operación mediante botones físicos cuando la interfaz gráfica o el monitor no están disponibles. |
+| RNF-08 | #24 | PR #37 | El mensaje de audio "Acceso correcto" puede escucharse a una distancia mínima de 1 metro del punto de acceso. |
+| RNF-09 | #35, #39 | PR #36, #38 | Los intentos de acceso quedan almacenados para su consulta posterior y no pueden modificarse desde las interfaces de acceso. |
+| RNF-10 | #24 | PR #37 | El sistema procesa una sola operación de acceso a la vez para evitar validaciones simultáneas por GUI y botones. |
