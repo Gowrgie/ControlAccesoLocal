@@ -1,58 +1,73 @@
-# Requisitos del sistema
-## Requerimientos Funcionales
-RF-01. El sistema deberá capturar la secuencia introducida, compararla con la información almacenada en la base de datos y determinar si el acceso se autoriza o se rechaza.
+# System Requirements
 
-RF-02. El sistema capturará un identificador de usuario y una clave de 4 a 6 pulsaciones.
+## Functional Requirements
 
-RF-03. El sistema mostrara por medio de luces led si la clave es válida(verde) o no es válida(rojo).
+**FR-01.** The system shall capture the input sequence, compare it against the information stored in the database, and determine whether access is authorized or denied.
 
-RF-04. El sistema se reiniciara después de cada captura para permitir nuevos datos.
+**FR-02.** The system shall capture a user identifier and a passcode of 4 to 6 inputs.
 
-RF-05. Si transcurren más de 4 segundos sin recibir una nueva pulsación durante una captura incompleta, el sistema limpiará el búfer de entrada, descartará los datos introducidos y regresará automáticamente a la pantalla de inicio(estado de espera).
+**FR-03.** The system shall indicate via LED lights whether the passcode is valid (green) or invalid (red).
 
-RF-06. El sistema emitira un sonido cada vez que regrese al estado de espera y quede listo para una nueva captura.
+**FR-04.** The system shall reset after each capture to allow for new data entry.
 
-RF-07. El sistema emitirá tres tonos cortos del buzzer al evaluar la secuencia ingresada, tanto si el acceso es autorizado como si es rechazado, coincidiendo con el encendido del LED verde o rojo correspondiente. Ante una falla del sistema emitirá un tono largo.
+**FR-05.** If more than 4 seconds elapse without a new input during an incomplete capture, the system shall clear the input buffer, discard the entered data, and automatically return to the home screen (standby state).
 
-RF-08. El sistema detectará la presencia de una persona mediante un sensor PIR y, estando en espera, iniciará o habilitará la interacción mostrando la pantalla de identificación. La detección del PIR no autorizará el acceso por sí sola.
+**FR-06.** The system shall emit a sound each time it returns to the standby state and is ready for a new capture.
 
-RF-09. El sistema contará con una interfaz gráfica sencilla desarrollada en Python que permitirá al usuario identificarse, introducir su clave y ver el resultado de la validación.
+**FR-07.** The system shall emit three short buzzer tones when evaluating the entered sequence, whether access is authorized or denied, coinciding with the activation of the corresponding green or red LED. In the event of a system failure, it shall emit one long tone.
 
-RF-10. El sistema mostrará la interfaz gráfica en un monitor conectado a la Raspberry Pi.
+**FR-08.** The system shall detect human presence using a PIR sensor and, while in standby, initiate or enable interaction by displaying the identification screen. PIR detection alone shall not authorize access.
 
-RF-11. El sistema almacenará y consultará la información necesaria en una base de datos MySQL, y registrará cada intento de acceso con fecha y hora, usuario, mecanismo utilizado (interfaz gráfica o botones) y resultado.
+**FR-09.** The system shall feature a simple graphical user interface (GUI) developed in Python, allowing the user to identify themselves, enter their passcode, and view the validation result.
 
-RF-12. El sistema identificará a cada usuario dentro del sistema y le asignará uno de tres roles (administrador, servicio técnico y usuario general) con permisos diferenciables.
+**FR-10.** The system shall display the graphical interface on a monitor connected to the Raspberry Pi.
 
-RF-13. El sistema validará el acceso utilizando la información almacenada en la base de datos (usuario, clave, rol y permisos) y distinguirá entre usuario autorizado, usuario autorizado pero sin permiso, información incorrecta o usuario no reconocido y falla en la consulta de la base de datos, sin tratar esta última como un rechazo.
+**FR-11.** The system shall store and query necessary information in a MySQL database, and log each access attempt with the date and time, user, mechanism used (GUI or physical buttons), and result.
 
-RF-14. El sistema conservará la interfaz física de botones de la primera versión para introducir la clave, y utilizará la misma lógica de validación que la interfaz gráfica, sin duplicarla.
+**FR-12.** The system shall identify each user within the system and assign them one of three roles (administrator, technical service, or general user) with distinct permissions.
 
-RF-15. Cuando la interfaz gráfica o el monitor no se encuentren disponibles, el sistema permitirá completar la autenticación, el resultado y el registro del intento mediante los botones físicos.
+**FR-13.** The system shall validate access using the information stored in the database (user, passcode, role, and permissions) and distinguish between an authorized user, an authorized user without permission, incorrect information or unrecognized user, and a database query failure. The latter must not be treated as a standard denial.
 
-RF-16. Cuando el acceso sea autorizado, el sistema reproducirá por bocina o altavoz el mensaje "Acceso correcto".
+**FR-14.** The system shall retain the physical button interface from the first version for passcode entry and use the same validation logic as the graphical interface, without duplication.
 
-RF-17. Cuando el acceso sea autorizado, el sistema activara un motor que represente la apertura del acceso y lo regresará a su posición de reposo después de 3 segundos. Con cualquier otro resultado no se activará.
+**FR-15.** When the graphical interface or monitor is unavailable, the system shall allow authentication, result display, and attempt logging to be completed using the physical buttons.
 
-RF-18. El sistema regresará a un estado de espera después de completar cada operación, sin importar el resultado ni la interfaz utilizada, quedando listo para detectar una nueva presencia.
+**FR-16.** When access is authorized, the system shall play the audio message "Access granted" ("Acceso correcto") through a speaker.
 
-## Requerimientos No Funcionales
-RNF-01. El sistema evitará registrar una pulsación física debido al rebote del botón, tanto en la captura del identificador como en la de la clave.
+**FR-17.** When access is authorized, the system shall activate a motor representing the opening of the access point and return it to its resting position after 3 seconds. It shall not activate for any other result.
 
-RNF-02. La información de acceso (usuario, clave, rol y permisos) almacenada en la base de datos deberá conservarse de forma segura durante la ejecución del sistema y solo podrá modificarse por el administrador.
+**FR-18.** The system shall return to a standby state after completing each operation, regardless of the result or the interface used, remaining ready to detect a new presence.
 
-RNF-03. El sistema deberá evaluar y presentar la respuesta (autorizado/rechazado/falla) en un tiempo no mayor a 1 segundo tras capturar el último dato de la secuencia, ya sea por interfaz gráfica o por botones.
+**FR-19:** The system shall support the guided enrollment of a new user via live facial capture and provide confirmation of successful registration.
 
-RNF-04. El sensor PIR deberá detectar la presencia de una persona y habilitar la interacción en un tiempo no mayor a 1 segundo.
+**FR-20:** The system shall perform facial detection and identification completely locally, without relying on external cloud recognition services.
 
-RNF-05. La interfaz gráfica deberá ser sencilla e intuitiva, de manera que un usuario pueda identificarse y completar la validación sin necesidad de capacitación previa.
+**FR-21:** The system shall unequivocally associate the biometric representation with a local user record and their permissions.
 
-RNF-06. La consulta a la base de datos MySQL deberá resolverse en un tiempo no mayor a 2 segundos; superado ese tiempo, el sistema deberá tratarlo como falla en la consulta.
+**FR-22:** After identifying a user's face, the system shall consult their permissions, authorize or reject access, and trigger the corresponding physical output.
 
-RNF-07. El sistema deberá permitir la operación mediante botones sin requerir reinicio manual cuando la interfaz gráfica o el monitor dejen de estar disponibles.
+**FR-23:** The system shall correctly reject access when an unregistered or unknown face is detected.
 
-RNF-08. El mensaje de audio "Acceso correcto" deberá reproducirse con un volumen audible a una distancia mínima de 1 metro del punto de acceso.
+## Non-Functional Requirements
 
-RNF-09. Los registros de intentos de acceso almacenados en la base de datos no deberán perderse ni ser alterables desde la interfaz gráfica o de botones, y deberán conservarse disponibles para su consulta posterior.
+**NFR-01.** The system shall prevent registering false physical inputs due to button bounce (debounce) during both identifier and passcode capture.
 
-RNF-10. El sistema deberá procesar una operación de acceso a la vez, evitando que una interacción por interfaz gráfica y otra por botones se validen simultáneamente sobre el mismo mecanismo de apertura.
+**NFR-02.** Access information (user, passcode, role, and permissions) stored in the database shall be kept secure during system execution and may only be modified by the administrator.
+
+**NFR-03.** The system shall evaluate and present the response (authorized/denied/failure) within no more than 1 second after capturing the final data point of the sequence, whether via the graphical interface or buttons.
+
+**NFR-04.** The PIR sensor shall detect human presence and enable interaction within no more than 1 second.
+
+**NFR-05.** The graphical interface shall be simple and intuitive, ensuring a user can identify themselves and complete validation without prior training.
+
+**NFR-06.** The MySQL database query shall resolve within no more than 2 seconds; if this time is exceeded, the system shall treat it as a query failure.
+
+**NFR-07.** The system shall allow operation via physical buttons without requiring a manual restart if the graphical interface or monitor becomes unavailable.
+
+**NFR-08.** The "Access granted" audio message shall be played at a volume audible from a minimum distance of 1 meter from the access point.
+
+**NFR-09.** Access attempt logs stored in the database shall not be lost or alterable from the graphical or button interfaces, and must remain available for future reference.
+
+**NFR-10.** The system shall process one access operation at a time, preventing simultaneous validation of a graphical interface interaction and a button interaction on the same opening mechanism.
+
+**NFR-11:** The main processing, database queries, and access decision logic must function entirely locally, even if a pre-trained model is used for the face recognition.
