@@ -1,47 +1,89 @@
 ```mermaid
 sequenceDiagram
-    actor Usuario
-    participant PIR as Sensor PIR
-    participant Sistema as Main_code.py
-    participant Botones as Botones fisicos
-    participant BD as Base de datos MySQL
-    participant Indicadores as LEDs / Buzzer / Servo
+    actor User
+    actor Admin as Administrator
+    participant PIR as PIR Sensor
+    participant System as Main_code.py
+    participant GUI as Graphical Interface
+    participant Buttons as Physical Buttons
+    participant Camera as Camera
+    participant DB as MySQL Database
+    participant Indicators as LEDs / Buzzer / Speaker / Motor
+    User->>PIR: Approaches access point
+    PIR->>System: Presence detected
+    System->>Indicators: Emit system-ready sound
+    System->>User: Enable interaction
+    alt Authentication through GUI
+        User->>GUI: Enter user ID and passcode
+        GUI->>System: Send captured credentials
 
-    Usuario->>PIR: Se acerca al punto de acceso
-    PIR->>Sistema: Detecta presencia (HIGH)
-    Sistema->>Indicadores: Sonido de inicio de captura
-    Sistema->>Usuario: Habilita interaccion (espera identificador)
+    else Authentication through physical buttons
+        loop Capture user identifier
+            User->>Buttons: Press button
+            Buttons->>System: Send input value
+            System->>Indicators: Emit short confirmation tone
+        end
 
-    loop Captura de identificador
-        Usuario->>Botones: Presiona boton
-        Botones->>Sistema: Valor de la pulsacion
-        Sistema->>Indicadores: Sonido corto de pulsacion reconocida
+        System->>User: Identifier captured, request passcode
+
+        loop Capture passcode (4 to 6 inputs)
+            User->>Buttons: Press button
+            Buttons->>System: Send input value
+            System->>Indicators: Emit short confirmation tone
+        end
+
+    else Authentication through facial recognition
+        User->>Camera: Present face
+        Camera->>System: Send live facial capture
+        System->>System: Perform facial detection and identification locally
+
+        alt Face recognized
+            System->>DB: Query linked user, role, and permissions
+            DB-->>System: Return user access data
+        else Unknown face
+            System->>Indicators: Turn on red LED + 3 short tones
+            System->>DB: Log unknown-face attempt
+            DB-->>System: Attempt recorded
+        end
     end
-
-    Sistema->>Usuario: Identificador capturado, espera clave
-
-    loop Captura de clave (4 a 6 pulsaciones)
-        Usuario->>Botones: Presiona boton
-        Botones->>Sistema: Valor de la pulsacion
-        Sistema->>Indicadores: Sonido corto de pulsacion reconocida
+    opt GUI or physical button authentication
+        System->>DB: Query user, passcode, role, and permissions
+        DB-->>System: Return validation result
     end
+    alt Authorized
+        System->>DB: Log authorized attempt
+        DB-->>System: Attempt recorded
+        System->>Indicators: Turn on green LED + 3 short tones
+        System->>Indicators: Play "Access granted" audio
+        System->>Indicators: Activate motor
+        Indicators-->>System: Wait 3 seconds
+        System->>Indicators: Return motor to resting position
 
-    Sistema->>BD: Consulta identificador y clave (validar_acceso)
-    BD-->>Sistema: Resultado (autorizado / sin_permiso / no_reconocido / error_sistema)
-    Sistema->>BD: Registra intento (usuario, mecanismo, resultado, fecha y hora)
+    else Recognized but without permission
+        System->>DB: Log attempt without permission
+        DB-->>System: Attempt recorded
+        System->>Indicators: Turn on red LED + 3 short tones
 
-    alt Resultado autorizado
-        Sistema->>Indicadores: LED verde + 3 tonos cortos
-        Sistema->>Indicadores: Abre servo (180 grados)
-        Indicadores-->>Sistema: Espera 3 segundos
-        Sistema->>Indicadores: Regresa servo a reposo (90 grados)
-    else Resultado sin_permiso o no_reconocido
-        Sistema->>Indicadores: LED rojo + 3 tonos cortos
-    else Resultado error_sistema
-        Sistema->>Indicadores: LED rojo + tono largo
+    else Invalid or unrecognized credentials
+        System->>DB: Log denied attempt
+        DB-->>System: Attempt recorded
+        System->>Indicators: Turn on red LED + 3 short tones
+
+    else Database query failure
+        System->>DB: Log system failure
+        DB-->>System: Failure recorded
+        System->>Indicators: Turn on red LED + one long tone
     end
-
-    Sistema->>PIR: Espera que la presencia deje de detectarse
-    Sistema->>Indicadores: Sonido de regreso a estado de espera
-    Sistema->>Usuario: Sistema listo para nueva operacion
+    opt New user facial enrollment
+        Admin->>System: Start new user enrollment
+        System->>Camera: Request live facial capture
+        Camera->>System: Send facial data
+        System->>System: Generate biometric representation locally
+        System->>DB: Associate biometric data with user record and permissions
+        DB-->>System: Enrollment stored
+        System->>Admin: Confirm successful enrollment
+    end
+    System->>PIR: Wait until presence is no longer detected
+    System->>Indicators: Emit standby sound
+    System->>User: System ready for a new operation
 ```

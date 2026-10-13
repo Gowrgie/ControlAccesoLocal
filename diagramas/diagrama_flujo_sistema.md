@@ -1,62 +1,89 @@
 ```mermaid
 flowchart TD
-    A([Inicio])
-    A --> B[Inicializar Raspberry Pi, GPIO, PIR, LEDs, buzzer, audio y motores]
-    B --> C[Inicializar conexión con base de datos MySQL]
-    C --> D[/Emitir sonido de sistema listo/]
-    D --> E[/Esperar detección de presencia mediante sensor PIR/]
-    E --> F{¿Persona detectada?}
+    A([Start])
+    A --> B[Initialize Raspberry Pi, GPIO, PIR, LEDs, buzzer, audio, camera, and motor]
+    B --> C[Initialize MySQL database connection]
+    C --> D[/Emit system-ready sound/]
+    D --> E[/Wait for presence detection through PIR sensor/]
+    E --> F{Person detected?}
     F -- No --> E
-    F -- Sí --> G{¿Sistema disponible para una nueva operación?}
+    F -- Yes --> G{System available for a new operation?}
     G -- No --> E
-    G -- Sí --> H[/Mostrar pantalla de identificación/]
-    H --> I{¿Método de captura utilizado?}
-    I -- Interfaz gráfica --> J[/Capturar identificador y clave desde GUI/]
-    I -- Botones físicos --> K[/Capturar identificador y clave mediante botones/]
-    J --> L[Consolidar datos capturados]
-    K --> M[GPIO detecta pulsaciones]
-    M --> N[Aplicar control de rebote]
-    N --> O[Registrar identificador y clave]
-    O --> P{¿Captura completa?}
-    P -- No --> Q{¿Pasaron más de 4 segundos sin pulsación?}
-    Q -- No --> K
-    Q -- Sí --> R[Limpiar búfer de entrada]
-    R --> S[Descartar datos capturados]
-    S --> Z[Regresar al estado de espera]
-    P -- Sí --> L
-    L --> BD[(Base de datos MySQL)]
-    BD --> T[Consultar usuario, clave, rol y permisos]
-    T --> U{¿Consulta realizada correctamente?}
-    U -- No --> V[/Indicar falla del sistema/]
-    V --> V1[/Emitir tono largo del buzzer/]
-    V1 --> V2[Registrar resultado de falla]
-    V2 --> Z
-    U -- Sí --> W{¿Usuario reconocido y clave correcta?}
-    W -- No --> X[/Encender LED rojo/]
-    X --> X1[/Emitir 3 tonos cortos/]
-    X1 --> X2[/Mostrar acceso rechazado/]
-    X2 --> X3[Registrar intento rechazado]
-    X3 --> BD2[(Registro de intentos)]
-    BD2 --> Z
-    W -- Sí --> Y[Identificar rol del usuario]
-    Y --> Y1{¿Rol y permisos autorizan el acceso?}
-    Y1 -- No --> AA[/Encender LED rojo/]
-    AA --> AA1[/Emitir 3 tonos cortos/]
-    AA1 --> AA2[/Mostrar usuario sin permiso/]
-    AA2 --> AA3[Registrar intento sin permiso]
-    AA3 --> BD3[(Registro de intentos)]
-    BD3 --> Z
-    Y1 -- Sí --> AB[/Encender LED verde/]
-    AB --> AB1[/Emitir 3 tonos cortos/]
-    AB1 --> AB2[/Mostrar acceso autorizado/]
-    AB2 --> AB3[/Reproducir mensaje "Acceso correcto"/]
-    AB3 --> AC[Activar los dos motores de apertura]
-    AC --> AD[Esperar 3 segundos]
-    AD --> AE[Regresar ambos motores a posición de reposo]
-    AE --> AF[Registrar intento autorizado]
-    AF --> BD4[(Registro de intentos)]
-    BD4 --> Z
-    Z --> AG[/Apagar LEDs y finalizar señales activas/]
-    AG --> AH[Limpiar datos de la operación]
+    G -- Yes --> H[/Display identification screen/]
+    H --> I{Operation type?}
+    I -- Access attempt --> J{Authentication method?}
+    I -- New user enrollment --> EN1{Administrator authorized?}
+    %% GUI AUTHENTICATION
+    J -- Graphical interface --> K[/Capture user ID and passcode through GUI/]
+    K --> L[Consolidate captured access data]
+    %% PHYSICAL BUTTON AUTHENTICATION
+    J -- Physical buttons --> M[/Capture user ID and passcode through buttons/]
+    M --> N[GPIO detects button inputs]
+    N --> O[Apply debounce control]
+    O --> P[Register identifier and passcode]
+    P --> Q{Capture complete?}
+    Q -- No --> R{More than 4 seconds without input?}
+    R -- No --> M
+    R -- Yes --> S[Clear input buffer]
+    S --> T[Discard captured data]
+    T --> Z[Return to standby state]
+    Q -- Yes --> L
+    %% FACIAL AUTHENTICATION
+    J -- Facial recognition --> FA1[/Capture live facial image/]
+    FA1 --> FA2[Perform facial detection and identification locally]
+    FA2 --> FA3{Registered face identified?}
+    FA3 -- No --> FA4[/Turn on red LED/]
+    FA4 --> FA5[/Emit 3 short buzzer tones/]
+    FA5 --> FA6[/Display access denied/]
+    FA6 --> FA7[Log unknown-face attempt]
+    FA7 --> LOG[(Access attempt logs)]
+    LOG --> Z
+    FA3 -- Yes --> FA8[Associate identified face with local user record]
+    FA8 --> DB[(MySQL Database)]
+    DB --> FA9[Query user role and permissions]
+    FA9 --> PERM{Do role and permissions authorize access?}
+    %% PASSCODE DATABASE VALIDATION
+    L --> DB
+    DB --> U[Query user, passcode, role, and permissions]
+    U --> V{Database query successful?}
+    V -- No --> W[/Indicate system failure/]
+    W --> W1[/Emit one long buzzer tone/]
+    W1 --> W2[Log database failure]
+    W2 --> LOG
+    V -- Yes --> X{User recognized and passcode correct?}
+    X -- No --> Y[/Turn on red LED/]
+    Y --> Y1[/Emit 3 short buzzer tones/]
+    Y1 --> Y2[/Display access denied/]
+    Y2 --> Y3[Log denied attempt]
+    Y3 --> LOG
+    X -- Yes --> X1[Identify user role]
+    X1 --> PERM
+    %% ROLE AND PERMISSION VALIDATION
+    PERM -- No --> AA[/Turn on red LED/]
+    AA --> AA1[/Emit 3 short buzzer tones/]
+    AA1 --> AA2[/Display user without permission/]
+    AA2 --> AA3[Log attempt without permission]
+    AA3 --> LOG
+    PERM -- Yes --> AB[/Turn on green LED/]
+    AB --> AB1[/Emit 3 short buzzer tones/]
+    AB1 --> AB2[/Display access granted/]
+    AB2 --> AB3[/Play "Access granted" audio message/]
+    AB3 --> AC[Activate opening motor]
+    AC --> AD[Wait 3 seconds]
+    AD --> AE[Return motor to resting position]
+    AE --> AF[Log authorized access attempt]
+    AF --> LOG
+    %% USER ENROLLMENT
+    EN1 -- No --> EN2[/Display authorization denied/]
+    EN2 --> Z
+    EN1 -- Yes --> EN3[/Capture new user's face live/]
+    EN3 --> EN4[Generate biometric representation locally]
+    EN4 --> EN5[Associate biometric data with local user record and permissions]
+    EN5 --> DB
+    EN5 --> EN6[/Display successful enrollment confirmation/]
+    EN6 --> Z
+    %% RESET
+    Z --> AG[/Turn off LEDs and finish active signals/]
+    AG --> AH[Clear operation data]
     AH --> D
     ```
