@@ -1,48 +1,73 @@
 ```mermaid
 flowchart TD
-    A([Inicio]) --> B[Inicializar sistema]
-    B --> C[/Emitir sonido de sistema listo/]
-    C --> D[/Esperar detección de presencia por sensor PIR/]
-    D --> E{¿Persona detectada?}
+    A([Start]) --> B[Initialize system]
+    B --> C[/Emit system-ready sound/]
+    C --> D[/Wait for presence detection through PIR sensor/]
+    D --> E{Person detected?}
     E -- No --> D
-    E -- Sí --> F[/Mostrar pantalla de identificación/]
-    F --> G{¿Método de captura disponible?}
-    G -- Interfaz gráfica --> H[/Capturar usuario y clave desde GUI/]
-    G -- Botones físicos --> I[/Capturar usuario y clave desde botones/]
-    I --> J{¿Captura completa?}
-    J -- No --> K{¿Han pasado más de 4 segundos sin pulsación?}
-    K -- No --> I
-    K -- Sí --> L[Limpiar búfer de entrada]
-    L --> M[Descartar datos introducidos]
-    M --> Z[Regresar al estado de espera]
-    J -- Sí --> N[Consolidar datos capturados]
-    H --> N
-    N --> O[Consultar usuario, clave, rol y permisos en MySQL]
-    O --> P{¿Consulta realizada correctamente?}
-    P -- No --> Q[/Indicar falla del sistema/]
-    Q --> Q1[/Emitir tono largo del buzzer/]
-    Q1 --> R[Registrar intento y falla en la base de datos]
-    R --> Z
-    P -- Sí --> S{¿Usuario reconocido e información correcta?}
-    S -- No --> T[/Encender LED rojo/]
-    T --> T1[/Emitir 3 tonos cortos/]
-    T1 --> T2[/Mostrar acceso rechazado/]
-    T2 --> U[Registrar intento rechazado]
-    U --> Z
-    S -- Sí --> V{¿Rol y permisos autorizan el acceso?}
-    V -- No --> W[/Encender LED rojo/]
-    W --> W1[/Emitir 3 tonos cortos/]
-    W1 --> W2[/Mostrar usuario sin permiso/]
-    W2 --> X[Registrar intento sin permiso]
-    X --> Z
-    V -- Sí --> Y[/Encender LED verde/]
-    Y --> Y1[/Emitir 3 tonos cortos/]
-    Y1 --> Y2[/Mostrar acceso autorizado/]
-    Y2 --> Y3[/Reproducir mensaje "Acceso correcto"/]
-    Y3 --> Y4[Activar los dos motores de apertura]
-    Y4 --> Y5[Esperar 3 segundos]
-    Y5 --> Y6[Regresar ambos motores a posición de reposo]
-    Y6 --> Y7[Registrar intento autorizado]
-    Y7 --> Z[Regresar al estado de espera]
+    E -- Yes --> F[/Display identification screen/]
+    F --> G{Operation type?}
+    G -- Access attempt --> H{Authentication method?}
+    G -- New user enrollment --> EN1{Administrator authorized?}
+    H -- Graphical interface --> I[/Capture user ID and passcode through GUI/]
+    H -- Physical buttons --> J[/Capture user ID and passcode through buttons/]
+    H -- Facial recognition --> FR1[/Capture live facial image/]
+    %% PHYSICAL BUTTON FLOW
+    J --> K{Capture complete?}
+    K -- No --> L{More than 4 seconds without input?}
+    L -- No --> J
+    L -- Yes --> M[Clear input buffer]
+    M --> N[Discard entered data]
+    N --> Z[Return to standby state]
+    K -- Yes --> O[Consolidate captured data]
+    I --> O
+    %% USER AND PASSCODE VALIDATION
+    O --> P[Query user, passcode, role, and permissions in MySQL]
+    P --> Q{Database query successful?}
+    Q -- No --> R[/Indicate system failure/]
+    R --> R1[/Emit one long buzzer tone/]
+    R1 --> R2[Log database failure]
+    R2 --> Z
+    Q -- Yes --> S{User recognized and information correct?}
+    S -- No --> T[/Turn on red LED/]
+    T --> T1[/Emit 3 short buzzer tones/]
+    T1 --> T2[/Display access denied/]
+    T2 --> T3[Log denied attempt]
+    T3 --> Z
+    S -- Yes --> U{Do role and permissions authorize access?}
+    %% FACIAL RECOGNITION FLOW
+    FR1 --> FR2[Perform facial identification locally]
+    FR2 --> FR3{Registered face identified?}
+    FR3 -- No --> FR4[/Turn on red LED/]
+    FR4 --> FR5[/Emit 3 short buzzer tones/]
+    FR5 --> FR6[/Display access denied/]
+    FR6 --> FR7[Log unknown-face attempt]
+    FR7 --> Z
+    FR3 -- Yes --> FR8[Associate face with local user record]
+    FR8 --> FR9[Query role and permissions]
+    FR9 --> U
+    %% PERMISSION VALIDATION
+    U -- No --> V[/Turn on red LED/]
+    V --> V1[/Emit 3 short buzzer tones/]
+    V1 --> V2[/Display user without permission/]
+    V2 --> V3[Log attempt without permission]
+    V3 --> Z
+    U -- Yes --> W[/Turn on green LED/]
+    W --> W1[/Emit 3 short buzzer tones/]
+    W1 --> W2[/Display access granted/]
+    W2 --> W3[/Play "Access granted" audio message/]
+    W3 --> X[Activate opening motor]
+    X --> X1[Wait 3 seconds]
+    X1 --> X2[Return motor to resting position]
+    X2 --> X3[Log authorized attempt]
+    X3 --> 
+    %% USER ENROLLMENT
+    EN1 -- No --> EN2[/Display authorization denied/]
+    EN2 --> Z
+    EN1 -- Yes --> EN3[/Capture new user's face live/]
+    EN3 --> EN4[Generate biometric representation locally]
+    EN4 --> EN5[Associate biometric data with user record and permissions]
+    EN5 --> EN6[/Display successful enrollment confirmation/]
+    EN6 --> Z
     Z --> C
     ```
