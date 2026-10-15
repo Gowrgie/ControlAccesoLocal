@@ -18,12 +18,13 @@ erDiagram
         string identificador
         string clave_acceso
         int id_rol FK
+        boolean activo
     }
 
     INTENTOS_ACCESO {
         int id_intento PK
         int id_usuario FK
-        datetime fecha_hora
+        datetime fecha_fecha_hora
         string mecanismo
         string resultado
     }
