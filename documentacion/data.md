@@ -1,7 +1,8 @@
 ```mermaid
 erDiagram
-    ROLES ||--o{ USUARIOS : "tiene"
-    USUARIOS ||--o{ INTENTOS_ACCESO : "realiza"
+    ROLES ||--o{ USUARIOS : "has"
+    USUARIOS ||--o{ INTENTOS_ACCESO : "makes"
+    USUARIOS ||--o{ EMBEDDINGS_FACIALES : "owns"
 
     ROLES {
         int id_rol PK
@@ -25,5 +26,13 @@ erDiagram
         datetime fecha_hora
         string mecanismo
         string resultado
+    }
+
+    EMBEDDINGS_FACIALES {
+        int id_embedding PK
+        int id_usuario FK
+        blob embedding
+        string modelo
+        datetime fecha_registro
     }
 ```
