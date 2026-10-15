@@ -24,6 +24,11 @@ Este archivo relaciona los requerimientos del sistema con los cambios realizados
 | RF-16 | #23, #24 | PR #37 | Cuando el acceso es autorizado, el sistema reproduce el mensaje de audio "Acceso correcto". |
 | RF-17 | #23, #24 | PR #37 | Al autorizar el acceso se activa un motor y, después de 3 segundos, ambos regresan a su posición de reposo. |
 | RF-18 | #5, #24 | PR #9, #37 | Después de cada operación el sistema regresa al estado de espera, sin importar el resultado o método de captura utilizado. |
+| RF-19 | #29 | PR wireframes | El sistema soporta el enrolamiento guiado de un nuevo usuario mediante captura facial en vivo y confirmación de registro (08_facial_enrollment.png). |
+| RF-20 | #29 | PR wireframes | El sistema realiza la detección e identificación facial de forma local y muestra el visor de cámara en tiempo real (09_facial_authentication.png). |
+| RF-21 | #29 | PR wireframes | El sistema asocia la representación biométrica con el registro del usuario y permite gestionar su estatus biométrico (10_user_management.png). |
+| RF-22 | #29 | PR wireframes | Tras identificar el rostro, el sistema consulta permisos y presenta el resultado de acceso concedido en pantalla (09_facial_authentication.png). |
+| RF-23 | #29 | PR wireframes | El sistema rechaza el acceso y muestra el estado correspondiente cuando se detecta un rostro no registrado o desconocido (09_facial_authentication.png). |
 
 ## Requerimientos no funcionales
 
@@ -39,3 +44,4 @@ Este archivo relaciona los requerimientos del sistema con los cambios realizados
 | RNF-08 | #24 | PR #37 | El mensaje de audio "Acceso correcto" puede escucharse a una distancia mínima de 1 metro del punto de acceso. |
 | RNF-09 | #35, #39 | PR #36, #38 | Los intentos de acceso quedan almacenados para su consulta posterior y no pueden modificarse desde las interfaces de acceso. |
 | RNF-10 | #24 | PR #37 | El sistema procesa una sola operación de acceso a la vez para evitar validaciones simultáneas por GUI y botones. |
+| RNF-11 | #29 | PR wireframes | La lógica de validación, captura y decisiones se ejecuta localmente en la interfaz sin depender de servicios en la nube. |
