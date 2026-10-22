@@ -12,6 +12,9 @@ Public interface:
         Screen path: checks the role chosen on screen and logs "interfaz_grafica".
     validar_acceso_por_botones(identificador, clave) -> str
         Button path: db_conexion validates and logs "botones".
+    validar_acceso_por_rostro(id_usuario) -> str
+        Facial path: id_usuario is the identified user (None = unknown face).
+        db_conexion reads the role permissions and logs "facial".
 """
 import unicodedata
 
@@ -20,6 +23,13 @@ try:
 except ImportError:
     print("Error: No se pudo importar db_conexion. No se autorizarán accesos.")
     validar_acceso = buscar_usuario = registrar_intento = None
+
+# Imported on its own: while the facial functions are not in db_conexion yet,
+# a missing name must not disable the button and screen paths.
+try:
+    from scripts_db.db_conexion import validar_acceso_facial
+except ImportError:
+    validar_acceso_facial = None
 
 
 def normalizar_rol(nombre):
@@ -72,4 +82,16 @@ def validar_acceso_por_botones(identificador, clave):
                 if validar_acceso is not None else "error_sistema")
     except Exception as error:
         print("Error al validar botones:", error)
+        return "error_sistema"
+
+
+def validar_acceso_por_rostro(id_usuario):
+    """Facial path: same result vocabulary as the other methods. The identified
+    user (or None for an unknown face) is judged by db_conexion, which reads the
+    permissions from the user's role and logs the attempt with "facial"."""
+    try:
+        return (validar_acceso_facial(id_usuario)
+                if validar_acceso_facial is not None else "error_sistema")
+    except Exception as error:
+        print("Error al validar rostro:", error)
         return "error_sistema"
