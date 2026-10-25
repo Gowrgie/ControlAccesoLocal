@@ -2162,48 +2162,55 @@ Después de integrar los componentes se realizaron pruebas progresivas:
 
 ---
 
-## 46. Resultado final del trabajo de hardware
 
-El sistema evolucionó desde una prueba individual con un botón hasta un prototipo integrado de control de acceso.
+## 46. Integración del altavoz Bluetooth y prueba de reproducción
 
-Actualmente la Raspberry Pi:
+Como parte de la tarea asignada, se conectó un altavoz Bluetooth a la Raspberry Pi 5 y se configuró Ubuntu para utilizarlo como salida de audio. La conexión se realizó de forma inalámbrica, sin utilizar los pines GPIO.
 
-1. espera a que el sensor PIR se estabilice;
-2. detecta la presencia de una persona;
-3. habilita la interfaz y los botones;
-4. captura el identificador y la contraseña;
-5. envía los datos al módulo de conexión;
-6. recibe la respuesta de MySQL;
-7. determina si el acceso se autoriza;
-8. activa el LED y el buzzer correspondientes;
-9. mueve el servo según el resultado;
-10. registra el intento;
-11. vuelve al estado de espera.
+Durante la configuración, PipeWire mostraba únicamente la salida “Dummy Output”. Se instaló el complemento Bluetooth de PipeWire y se reiniciaron los servicios de audio. Después, `wpctl status` mostró el altavoz Bluetooth como salida de audio disponible.
 
-El recorrido físico y lógico puede resumirse así:
+### Código de prueba
 
-```text
-Sensor PIR
-        ↓
-GPIO27
-        ↓
-Programa unificado
-        ↓
-Interfaz o botones
-        ↓
-Identificador y contraseña
-        ↓
-MySQL Server
-        ↓
-Resultado de permisos
-        ↓
-GPIO23 / GPIO24 / GPIO25
-        ↓
-LED y buzzer
-        ↓
-GPIO26
-        ↓
-Servo de apertura
+Se creó un programa en Python para generar un tono de 440 Hz durante dos segundos y guardarlo como archivo WAV:
+
+```python
+import math
+import struct
+import wave
+
+frecuencia_muestreo = 44100
+duracion = 2
+frecuencia = 440
+volumen = 0.35
+
+with wave.open("/tmp/tono.wav", "wb") as archivo:
+    archivo.setnchannels(1)
+    archivo.setsampwidth(2)
+    archivo.setframerate(frecuencia_muestreo)
+
+    muestras = b"".join(
+        struct.pack(
+            "<h",
+            int(
+                32767
+                * volumen
+                * math.sin(
+                    2 * math.pi * frecuencia * i / frecuencia_muestreo
+                )
+            ),
+        )
+        for i in range(frecuencia_muestreo * duracion)
+    )
+
+    archivo.writeframes(muestras)
 ```
 
-Con esta integración, el equipo de hardware dejó preparado el circuito para que el acceso pueda realizarse tanto mediante la interfaz gráfica como mediante los botones físicos, utilizando una única lógica de validación y una única respuesta física de apertura.
+El tono generado se reprodujo con el siguiente comando:
+
+```bash
+paplay /tmp/tono.wav
+```
+
+### Prueba con el código del proyecto
+
+Después de ejecutar la prueba del tono, se probó el altavoz con el código de reproducción integrado en el proyecto. El altavoz reprodujo el sonido correctamente, por lo que se confirmó su funcionamiento con el sistema.
