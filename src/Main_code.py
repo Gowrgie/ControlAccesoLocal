@@ -14,6 +14,10 @@ Modules:
     access_flow.py    capture/validation flow shared by both modes
     gui.py            Tkinter screens
     headless_mode.py  physical mode without a desktop
+    camera.py         provided by the hardware team: camara_disponible() -> bool
+
+Without a working camera the facial method cannot be used, so the system
+starts in button-only mode (the same mode as --solo-botones).
 
 Extra dependencies: lgpio and scripts_db/db_conexion.py. Audio tones need
 speaker-test; the GPIO buzzer is independent. On Ubuntu, tkinter may need
@@ -23,6 +27,18 @@ import argparse
 
 from gui import InterfazControlAcceso, tk
 from headless_mode import ModoBotones, TemporizadorFisico
+
+# camera.py is written by the hardware team. camara_disponible() must return
+# True when frames can be read, and must release the camera before returning.
+try:
+    from camera import camara_disponible
+except ModuleNotFoundError as error:
+    if error.name == "camera":
+        camara_disponible = None  # no camera module in this build: facial recognition is not installed
+    else:
+        camara_disponible = lambda: False  # the module exists but a library it needs is missing
+except ImportError:
+    camara_disponible = lambda: False
 
 
 def liberar_aplicacion(app, root):
@@ -88,15 +104,32 @@ def ejecutar_interfaz():
     return fallback
 
 
+def camara_no_disponible():
+    """True only when the facial method cannot be used: the camera module says
+    the camera does not work, fails while checking, or could not be loaded."""
+    if camara_disponible is None:
+        return False  # no camera module in this build: there is nothing to check
+    try:
+        return not camara_disponible()
+    except Exception as error:
+        print("[CAMARA] Error al comprobar la camara:", error, flush=True)
+        return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="Acceso por interfaz y botones, con respaldo sin pantalla.")
     parser.add_argument("--solo-botones", action="store_true",
                         help="No abrir interfaz; usar sensor, botones, MySQL, servo, LEDs y buzzer.")
     args = parser.parse_args()
+    # Without a working camera the facial method is not available: start in
+    # button-only mode, the same one --solo-botones asks for.
+    if camara_no_disponible():
+        print("[CAMARA] No disponible. El sistema inicia solo con botones.", flush=True)
+        ejecutar_solo_botones()
     # With --solo-botones Tk is not even tried. Without it, ejecutar_interfaz
     # returns True if the screenless fallback is needed. Closing the window
     # normally does NOT start physical mode.
-    if args.solo_botones or ejecutar_interfaz():
+    elif args.solo_botones or ejecutar_interfaz():
         ejecutar_solo_botones()
 
 
