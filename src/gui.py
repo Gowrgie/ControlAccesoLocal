@@ -349,7 +349,123 @@ class InterfazControlAcceso(ControlAcceso):
         resultado = validar_acceso_por_rol(
             self.identificador, self.contrasena, self.rol_seleccionado
         )
+
+        if self.rol_seleccionado == "admin" and resultado == "autorizado":
+            self.mostrar_menu_registro_admin()
+            return
+
         self.mostrar_resultado(resultado)
+
+    def mostrar_menu_registro_admin(self):
+        """Permite al administrador elegir un usuario activo para inscribir."""
+        try:
+            from scripts_db.db_conexion import listar_usuarios_activos
+            usuarios = listar_usuarios_activos()
+        except Exception as error:
+            messagebox.showerror(
+                "Error",
+                f"No se pudieron cargar los usuarios:\n{error}",
+                parent=self.root,
+            )
+            self.mostrar_standby()
+            return
+
+        self.usuarios_registro = usuarios
+        self.limpiar_frame()
+
+        frame = ttk.Frame(self.main_frame, padding=24)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            frame,
+            text="Registro facial",
+            font=("Helvetica", 24, "bold"),
+            fg=self.COLOR_PRIMARY,
+            bg=self.COLOR_BG,
+        ).pack(pady=(30, 12))
+
+        tk.Label(
+            frame,
+            text="Selecciona un usuario activo para iniciar su inscripción.",
+            font=("Helvetica", 13),
+            fg=self.COLOR_TEXT,
+            bg=self.COLOR_BG,
+        ).pack(pady=10)
+
+        opciones = [
+            f"{usuario['nombre']} ({usuario['identificador']})"
+            for usuario in usuarios
+        ]
+
+        self.selector_usuario_registro = ttk.Combobox(
+            frame,
+            values=opciones,
+            state="readonly",
+            width=42,
+        )
+        self.selector_usuario_registro.pack(pady=15)
+
+        if opciones:
+            self.selector_usuario_registro.current(0)
+        else:
+            tk.Label(
+                frame,
+                text="No hay usuarios activos para registrar.",
+                font=("Helvetica", 12),
+                fg=self.COLOR_TEXT,
+                bg=self.COLOR_BG,
+            ).pack(pady=10)
+
+        tk.Button(
+            frame,
+            text="Iniciar registro",
+            font=("Helvetica", 12, "bold"),
+            bg=self.COLOR_SUCCESS,
+            fg="white",
+            command=self.iniciar_registro_admin,
+            state="normal" if usuarios else "disabled",
+            padx=18,
+            pady=8,
+        ).pack(pady=10)
+
+        tk.Button(
+            frame,
+            text="Cancelar",
+            font=("Helvetica", 11),
+            bg="#95a5a6",
+            fg="white",
+            command=self.mostrar_standby,
+            padx=18,
+            pady=6,
+        ).pack(pady=5)
+
+    def iniciar_registro_admin(self):
+        """Abre la captura guiada para el usuario seleccionado."""
+        indice = self.selector_usuario_registro.current()
+
+        if indice < 0:
+            messagebox.showwarning(
+                "Selecciona un usuario",
+                "Elige un usuario antes de iniciar el registro.",
+                parent=self.root,
+            )
+            return
+
+        usuario = self.usuarios_registro[indice]
+
+        try:
+            from reconocimiento_facial.registrar_rostro import abrir_registro_rostro
+
+            self.ventana_registro_rostro = abrir_registro_rostro(
+                parent=self.root,
+                id_usuario=usuario["id_usuario"],
+            )
+        except Exception as error:
+            messagebox.showerror(
+                "No se pudo iniciar el registro",
+                str(error),
+                parent=self.root,
+            )
 
     # ============ result shared by both methods ============
     def mostrar_resultado(self, resultado, accionar=True):
