@@ -38,6 +38,25 @@ def buscar_usuario(identificador_ingresado, clave_ingresada):
 
     return usuario
 
+def listar_usuarios_activos():
+    """Devuelve los usuarios activos disponibles para el registro facial."""
+    conexion = conectar_bd()
+
+    try:
+        cursor = conexion.cursor(dictionary=True)
+        try:
+            cursor.execute("""
+                SELECT id_usuario, nombre, identificador
+                FROM usuarios
+                WHERE activo = 1
+                ORDER BY nombre
+            """)
+            return cursor.fetchall()
+        finally:
+            cursor.close()
+    finally:
+        conexion.close()
+
 
 def registrar_intento(id_usuario, mecanismo, resultado):
     conexion = conectar_bd()
