@@ -121,25 +121,36 @@ def guardar_embedding(id_usuario, embedding_bytes, modelo):
     conexion.close()
 
 
+RESULTADOS_ACCESO = ("autorizado", "sin_permiso", "no_reconocido", "error_sistema")
+
+
+def registrar_intento_facial(id_usuario, resultado):
+    """Logs one facial attempt: user (None if unknown), date/time, method "facial" and result.
+    The result is checked here because, depending on the server SQL mode, a value outside
+    the ENUM can be rejected or silently stored as an empty string."""
+    if resultado not in RESULTADOS_ACCESO:
+        raise ValueError(f"Resultado no valido para el registro de accesos: {resultado}")
+    registrar_intento(id_usuario, "facial", resultado)
+
 def validar_acceso_facial(id_usuario):
     """Decision for a face. id_usuario is the identified user, or None for an unknown face.
     Permissions are read from the user's role, like in the other methods."""
     try:
         if id_usuario is None:
-            registrar_intento(None, "facial", "no_reconocido")
+            registrar_intento_facial(None, "no_reconocido")
             return "no_reconocido"
 
         datos = obtener_permisos_por_usuario(id_usuario)
 
         if datos is None:
-            registrar_intento(None, "facial", "no_reconocido")
+            registrar_intento_facial(None, "no_reconocido")
             return "no_reconocido"
 
         if not datos["activo"] or not datos["permiso_apertura"]:
-            registrar_intento(id_usuario, "facial", "sin_permiso")
+            registrar_intento_facial(id_usuario, "sin_permiso")
             return "sin_permiso"
 
-        registrar_intento(id_usuario, "facial", "autorizado")
+        registrar_intento_facial(id_usuario, "autorizado")
         return "autorizado"
 
     except mysql.connector.Error as error:
