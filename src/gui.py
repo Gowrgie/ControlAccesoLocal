@@ -438,11 +438,10 @@ class InterfazControlAcceso(ControlAcceso):
             padx=18,
             pady=6,
         ).pack(pady=5)
-
+        
     def iniciar_registro_admin(self):
         """Abre la captura guiada para el usuario seleccionado."""
         indice = self.selector_usuario_registro.current()
-
         if indice < 0:
             messagebox.showwarning(
                 "Selecciona un usuario",
@@ -459,13 +458,16 @@ class InterfazControlAcceso(ControlAcceso):
             self.ventana_registro_rostro = abrir_registro_rostro(
                 parent=self.root,
                 id_usuario=usuario["id_usuario"],
+                al_completar=self.registro_finalizado,
             )
         except Exception as error:
+            self.ventana_registro_rostro = None
             messagebox.showerror(
                 "No se pudo iniciar el registro",
                 str(error),
                 parent=self.root,
             )
+            self.mostrar_standby()
 
     # ============ result shared by both methods ============
     def mostrar_resultado(self, resultado, accionar=True):
@@ -573,3 +575,10 @@ class InterfazControlAcceso(ControlAcceso):
 
         for widget in self.main_frame.winfo_children():
             widget.destroy()
+
+    def registro_finalizado(self, id_usuario=None):
+        self.ventana_registro_rostro = None
+        try:
+            self.root.after_idle(self.mostrar_standby)
+        except tk.TclError:
+            pass

@@ -137,17 +137,31 @@ class RegistroRostro:
         self.root.minsize(680, 580)
 
     def cerrar_por_error(self):
-        """Cierra esta ventana después de mostrar un error de inicialización."""
+        """Cierra el registro tras un error y devuelve el flujo a la ventana principal."""
+        if getattr(self, "_cerrando", False):
+            return
+
+        self._cerrando = True
         self.terminado = True
 
-        if self.camara is not None:
-            self.camara.release()
+        callback = self.al_completar
+        self.al_completar = None
+
+        camara = getattr(self, "camara", None)
+        if camara is not None:
+            camara.release()
             self.camara = None
 
         try:
             self.root.destroy()
         except tk.TclError:
             pass
+
+        if callback is not None and self.parent is not None:
+            try:
+                self.parent.after_idle(lambda: callback(self.id_usuario))
+            except tk.TclError:
+                pass
 
     def cargar_datos(self):
         """Comprueba modelos, usuario activo y ausencia de muestras anteriores."""
@@ -513,11 +527,12 @@ class RegistroRostro:
             self.actualizar_boton()
 
             if self.fallos_lectura >= MAX_FALLOS_CAMARA:
-                self.estado_var.set(
-                    "La cámara dejó de enviar imagen. "
-                    "Revisa la conexión y vuelve a iniciar el registro."
+                messagebox.showerror(
+                    "Cámara no disponible",
+                    "La cámara dejó de enviar imagen. Revisa la conexión e intenta de nuevo.",
+                    parent=self.root,
                 )
-                self.boton_capturar.configure(state="disabled")
+                self.cerrar_por_error()
                 return
 
             self.root.after(100, self.actualizar_video)
@@ -564,24 +579,19 @@ class RegistroRostro:
         self.root.after(15, self.actualizar_video)
 
     def capturar_muestra(self):
-        """Agrega a la sesión la muestra que está lista en pantalla."""
         if (
             self.terminado
+            or self.guardando
             or self.caracteristica_actual is None
             or len(self.muestras) >= MAX_MUESTRAS
         ):
             return
 
-        muestra = np.asarray(
+        caracteristica = np.asarray(
             self.caracteristica_actual,
             dtype=np.float32,
-        ).flatten()
-
-        if muestra.size == 0 or not np.all(np.isfinite(muestra)):
-            self.estado_var.set("La muestra no es válida. Intenta de nuevo.")
-            return
-
-        self.muestras.append(muestra)
+        )
+        self.muestras.append(caracteristica.flatten().tolist())
         cantidad = len(self.muestras)
 
         self.progreso_var.set(f"{cantidad} de {MAX_MUESTRAS} muestras")
@@ -600,25 +610,24 @@ class RegistroRostro:
 
         if cantidad < MAX_MUESTRAS:
             pose_siguiente = SECUENCIA_POSES[cantidad]
-            instruccion = pose_en_pantalla(pose_siguiente)
+            nombre_pose = pose_en_pantalla(pose_siguiente)
 
             self.pose_var.set(
                 f"Muestra {cantidad + 1} de {MAX_MUESTRAS} · "
-                f"{instruccion.capitalize()}"
+                f"{nombre_pose.capitalize()}"
             )
             self.actualizar_flecha_pose(pose_siguiente)
             self.estado_var.set(
-                f"Muestra {cantidad} capturada. Ahora {instruccion}."
+                f"Muestra {cantidad} guardada. Ahora {nombre_pose}."
             )
             return
 
-        self.pose_var.set("Guardando muestras en la base de datos…")
-        self.estado_var.set("Espera mientras se guardan las muestras.")
-        self.puede_reintentar_guardado = False
+        self.pose_var.set("Guardando registro…")
+        self.estado_var.set("Las cinco muestras se capturaron correctamente.")
         self.guardar_en_base_de_datos()
 
     def guardar_en_base_de_datos(self):
-        """Guarda los embeddings y revierte los nuevos si una inserción falla."""
+        """Guarda las cinco muestras y cierra la captura al mostrar el resultado."""
         if (
             self.guardando
             or self.terminado
@@ -633,7 +642,11 @@ class RegistroRostro:
 
         try:
             for muestra in self.muestras:
-                embedding_bytes = muestra.astype(np.float32).tobytes()
+                embedding_bytes = np.asarray(
+                    muestra,
+                    dtype=np.float32,
+                ).tobytes()
+
                 id_embedding = insertar_embedding(
                     self.id_usuario,
                     embedding_bytes,
@@ -654,30 +667,29 @@ class RegistroRostro:
 
             if errores_reversion:
                 self.persistencia_incierta = True
-                self.puede_reintentar_guardado = False
                 detalle_reversion = "\n".join(errores_reversion)
                 mensaje = (
                     f"No se completó el registro: {error}\n\n"
-                    "No pude eliminar todas las muestras parciales. "
+                    "No se pudieron eliminar todas las muestras parciales. "
                     "Revisa esos registros en la base de datos antes de volver "
                     f"a intentarlo:\n{detalle_reversion}"
                 )
             else:
-                self.puede_reintentar_guardado = True
                 mensaje = (
                     f"No se pudieron guardar las muestras:\n{error}\n\n"
-                    "Las inserciones parciales se revirtieron. "
-                    "Puedes pulsar «Reintentar guardado»."
+                    "Las inserciones parciales se revirtieron."
                 )
 
-            self.estado_var.set("No se completó el guardado.")
             self.guardando = False
+            self.terminado = True
             self.actualizar_boton()
+
             messagebox.showerror(
                 "Error al guardar el registro",
                 mensaje,
                 parent=self.root,
             )
+            self.cerrar()
             return
 
         self.ids_insertados = ids_nuevos
@@ -705,30 +717,42 @@ class RegistroRostro:
             parent=self.root,
         )
 
-        if self.al_completar is not None:
-            try:
-                self.al_completar(self.id_usuario)
-            except Exception as error:
-                print(f"[REGISTRO FACIAL] Error en callback: {error}")
+        self.cerrar()
 
     def cerrar(self):
-        if self.terminado:
-            self.cerrar_por_error()
+        if getattr(self, "_cerrando", False):
             return
 
-        if self.muestras:
+        if not self.terminado and self.muestras:
             salir = messagebox.askyesno(
                 "Cancelar registro",
-                (
-                    "Las muestras capturadas que aún no se guardaron "
-                    "se perderán. ¿Quieres salir?"
-                ),
+                "Las muestras capturadas se perderán. ¿Quieres salir?",
                 parent=self.root,
             )
             if not salir:
                 return
 
-        self.cerrar_por_error()
+        self._cerrando = True
+        self.terminado = True
+
+        id_usuario = self.id_usuario
+        callback = self.al_completar
+        self.al_completar = None
+
+        if self.camara is not None:
+            self.camara.release()
+            self.camara = None
+
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
+
+        if callback is not None and self.parent is not None:
+            try:
+                self.parent.after_idle(lambda: callback(id_usuario))
+            except tk.TclError:
+                pass
 
 
 def abrir_registro_rostro(parent, id_usuario, al_completar=None):
