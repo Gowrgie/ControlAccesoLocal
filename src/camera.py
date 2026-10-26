@@ -149,6 +149,23 @@ class Camera:
         self.release()
         return False
 
+def camara_disponible():
+    """Comprueba que la cámara pueda entregar un fotograma y la libera."""
+    camara = Camera()
+
+    try:
+        if not camara.open():
+            return False
+
+        return camara.read_frame() is not None
+
+    except Exception as error:
+        print(f"[CAMARA] Error al comprobar disponibilidad: {error}", flush=True)
+        return False
+
+    finally:
+        camara.release()
+
 
 if __name__ == "__main__":
     # Quick hardware check:  python3 camera.py
