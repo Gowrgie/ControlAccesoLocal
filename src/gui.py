@@ -20,7 +20,7 @@ from datetime import datetime
 
 from access_flow import ControlAcceso
 from access_logic import validar_acceso_por_rol
-from audio import reproducir_sonido_exito, reproducir_sonido_error, reproducir_sonido_alerta
+from audio import reproducir_mensaje_resultado
 from reconocimiento_facial.reconocer_rostro import abrir_reconocimiento
 from hardware import PIR_PIN
 
@@ -154,7 +154,7 @@ class InterfazControlAcceso(ControlAcceso):
             self.pir_canvas.itemconfig(self.pir_circulo, fill=self.COLOR_SUCCESS)
             self.pir_label.config(text="Presencia detectada", fg=self.COLOR_SUCCESS)
             self.instruccion_label.config(
-                text="Presencia detectada\nPresione ESPACIO para continuar",
+                text="ESPACIO: interfaz | Presione un botón: acceso físico\nReconocimiento facial inicia en 2 segundos",
                 fg=self.COLOR_SUCCESS
             )
         else:
@@ -169,16 +169,14 @@ class InterfazControlAcceso(ControlAcceso):
         self._pir_after = self.root.after(500, self.leer_pir)
 
     def validar_entrada_space(self, event):
-        """Checks whether the user can move on when pressing space"""
-        if self._captura_metodo in ("botones", "facial") or self._en_resultado:
+        if self._captura_metodo in ("botones", "facial", "administracion") or self._en_resultado:
             return "break"
+
         self.actualizar_presencia(time.monotonic())
         if not self.pir_activo:
-            # No movement detected
             self.pir_label.config(text="Acérquese, por favor", fg=self.COLOR_DANGER)
-            return "break"  # Ignore the event
+            return "break"
 
-        # With movement, move on
         self._captura_metodo = "interfaz_grafica"
         print("[MÉTODO] Pantalla seleccionada; botones físicos en espera.", flush=True)
         self.mostrar_seleccion_rol()
@@ -368,23 +366,65 @@ class InterfazControlAcceso(ControlAcceso):
         )
 
         if self.rol_seleccionado == "admin" and resultado == "autorizado":
-            self.mostrar_menu_registro_admin()
+            self.mostrar_menu_administrador()
             return
 
         self.mostrar_resultado(resultado)
 
     def mostrar_menu_registro_admin(self):
-        """Permite al administrador elegir un usuario activo para inscribir."""
+        """Menú de administración de usuarios y registros faciales."""
+        self.limpiar_frame()
+        self._en_resultado = False
+        self._captura_metodo = "administracion"
+        self._captura_id = ""
+        self._captura_clave = ""
+
+        frame = ttk.Frame(self.main_frame, padding=24)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(
+            frame,
+            text="Administración de usuarios",
+            font=("Helvetica", 22, "bold"),
+        ).pack(pady=(35, 20))
+
+        ttk.Button(
+            frame,
+            text="Registrar rostro de un usuario existente",
+            command=self.mostrar_usuarios_para_registro_admin,
+        ).pack(pady=10)
+
+        ttk.Button(
+            frame,
+            text="Crear usuario nuevo",
+            command=self.mostrar_formulario_usuario_nuevo,
+        ).pack(pady=10)
+
+        ttk.Button(
+            frame,
+            text="Volver",
+            command=self.mostrar_standby,
+        ).pack(pady=(25, 10))
+
+
+    def mostrar_usuarios_para_registro_admin(self):
+        """Muestra los usuarios activos y señala cuáles ya tienen rostro."""
         try:
             from scripts_db.db_conexion import listar_usuarios_activos
+            from scripts_db.database import leer_embeddings_usuario
+
             usuarios = listar_usuarios_activos()
+            for usuario in usuarios:
+                usuario["tiene_rostro"] = bool(
+                    leer_embeddings_usuario(usuario["id_usuario"])
+                )
         except Exception as error:
             messagebox.showerror(
                 "Error",
                 f"No se pudieron cargar los usuarios:\n{error}",
                 parent=self.root,
             )
-            self.mostrar_standby()
+            self.mostrar_menu_registro_admin()
             return
 
         self.usuarios_registro = usuarios
@@ -393,72 +433,55 @@ class InterfazControlAcceso(ControlAcceso):
         frame = ttk.Frame(self.main_frame, padding=24)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        tk.Label(
+        ttk.Label(
             frame,
-            text="Registro facial",
-            font=("Helvetica", 24, "bold"),
-            fg=self.COLOR_PRIMARY,
-            bg=self.COLOR_BG,
-        ).pack(pady=(30, 12))
+            text="Registro facial de usuario existente",
+            font=("Helvetica", 20, "bold"),
+        ).pack(pady=(25, 12))
 
-        tk.Label(
+        ttk.Label(
             frame,
-            text="Selecciona un usuario activo para iniciar su inscripción.",
-            font=("Helvetica", 13),
-            fg=self.COLOR_TEXT,
-            bg=self.COLOR_BG,
-        ).pack(pady=10)
+            text="Los usuarios que ya tienen muestras no se pueden registrar otra vez.",
+        ).pack(pady=8)
 
-        opciones = [
-            f"{usuario['nombre']} ({usuario['identificador']})"
-            for usuario in usuarios
-        ]
+        opciones = []
+        for usuario in usuarios:
+            estado = " — rostro ya registrado" if usuario["tiene_rostro"] else ""
+            opciones.append(
+                f"{usuario['nombre']} ({usuario['identificador']}){estado}"
+            )
 
         self.selector_usuario_registro = ttk.Combobox(
             frame,
             values=opciones,
             state="readonly",
-            width=42,
+            width=55,
         )
         self.selector_usuario_registro.pack(pady=15)
 
         if opciones:
             self.selector_usuario_registro.current(0)
         else:
-            tk.Label(
-                frame,
-                text="No hay usuarios activos para registrar.",
-                font=("Helvetica", 12),
-                fg=self.COLOR_TEXT,
-                bg=self.COLOR_BG,
-            ).pack(pady=10)
+            ttk.Label(frame, text="No hay usuarios activos.").pack(pady=10)
 
-        tk.Button(
+        ttk.Button(
             frame,
-            text="Iniciar registro",
-            font=("Helvetica", 12, "bold"),
-            bg=self.COLOR_SUCCESS,
-            fg="white",
+            text="Iniciar registro facial",
             command=self.iniciar_registro_admin,
             state="normal" if usuarios else "disabled",
-            padx=18,
-            pady=8,
-        ).pack(pady=10)
+        ).pack(pady=8)
 
-        tk.Button(
+        ttk.Button(
             frame,
-            text="Cancelar",
-            font=("Helvetica", 11),
-            bg="#95a5a6",
-            fg="white",
-            command=self.mostrar_standby,
-            padx=18,
-            pady=6,
-        ).pack(pady=5)
-        
+            text="Volver",
+            command=self.mostrar_menu_registro_admin,
+        ).pack(pady=8)
+
+
     def iniciar_registro_admin(self):
-        """Abre la captura guiada para el usuario seleccionado."""
+        """Abre el registro facial para el usuario seleccionado."""
         indice = self.selector_usuario_registro.current()
+
         if indice < 0:
             messagebox.showwarning(
                 "Selecciona un usuario",
@@ -469,25 +492,170 @@ class InterfazControlAcceso(ControlAcceso):
 
         usuario = self.usuarios_registro[indice]
 
+        if usuario["tiene_rostro"]:
+            messagebox.showwarning(
+                "Registro facial existente",
+                (
+                    f"{usuario['nombre']} ya tiene muestras faciales. "
+                    "No se inició otro registro."
+                ),
+                parent=self.root,
+            )
+            return
+
+        self.abrir_registro_rostro_admin(usuario["id_usuario"])
+
+
+    def mostrar_formulario_usuario_nuevo(self):
+        """Muestra el formulario para crear una cuenta."""
+        try:
+            from scripts_db.db_conexion import listar_roles
+            roles = listar_roles()
+        except Exception as error:
+            messagebox.showerror(
+                "Error",
+                f"No se pudieron cargar los roles:\n{error}",
+                parent=self.root,
+            )
+            self.mostrar_menu_registro_admin()
+            return
+
+        if not roles:
+            messagebox.showerror(
+                "Sin roles",
+                "No hay roles disponibles para asignar al usuario.",
+                parent=self.root,
+            )
+            self.mostrar_menu_registro_admin()
+            return
+
+        self.limpiar_frame()
+
+        frame = ttk.Frame(self.main_frame, padding=24)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(
+            frame,
+            text="Crear usuario",
+            font=("Helvetica", 20, "bold"),
+        ).grid(row=0, column=0, columnspan=2, pady=(10, 20))
+
+        ttk.Label(frame, text="Nombre:").grid(
+            row=1, column=0, sticky="e", padx=8, pady=8
+        )
+        entrada_nombre = ttk.Entry(frame, width=32)
+        entrada_nombre.grid(row=1, column=1, padx=8, pady=8)
+
+        ttk.Label(frame, text="Identificador:").grid(
+            row=2, column=0, sticky="e", padx=8, pady=8
+        )
+        entrada_identificador = ttk.Entry(frame, width=32)
+        entrada_identificador.grid(row=2, column=1, padx=8, pady=8)
+
+        ttk.Label(frame, text="Contraseña:").grid(
+            row=3, column=0, sticky="e", padx=8, pady=8
+        )
+        entrada_clave = ttk.Entry(frame, width=32, show="*")
+        entrada_clave.grid(row=3, column=1, padx=8, pady=8)
+
+        ttk.Label(frame, text="Rol:").grid(
+            row=4, column=0, sticky="e", padx=8, pady=8
+        )
+        selector_rol = ttk.Combobox(
+            frame,
+            values=[rol["nombre_rol"] for rol in roles],
+            state="readonly",
+            width=29,
+        )
+        selector_rol.grid(row=4, column=1, padx=8, pady=8)
+        selector_rol.current(0)
+
+        registrar_rostro_ahora = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            frame,
+            text="Registrar el rostro ahora",
+            variable=registrar_rostro_ahora,
+        ).grid(row=5, column=0, columnspan=2, pady=12)
+
+        def guardar_usuario():
+            indice_rol = selector_rol.current()
+            if indice_rol < 0:
+                messagebox.showwarning(
+                    "Selecciona un rol",
+                    "Elige el rol del usuario.",
+                    parent=self.root,
+                )
+                return
+
+            try:
+                from scripts_db.db_conexion import crear_usuario
+
+                id_usuario = crear_usuario(
+                    nombre=entrada_nombre.get(),
+                    identificador=entrada_identificador.get(),
+                    clave_acceso=entrada_clave.get(),
+                    id_rol=roles[indice_rol]["id_rol"],
+                )
+            except ValueError as error:
+                messagebox.showwarning(
+                    "No se pudo crear el usuario",
+                    str(error),
+                    parent=self.root,
+                )
+                return
+            except Exception as error:
+                messagebox.showerror(
+                    "Error al crear el usuario",
+                    str(error),
+                    parent=self.root,
+                )
+                return
+
+            if registrar_rostro_ahora.get():
+                self.abrir_registro_rostro_admin(id_usuario)
+                return
+
+            messagebox.showinfo(
+                "Usuario creado",
+                "La cuenta se creó. Puedes registrar su rostro después.",
+                parent=self.root,
+            )
+            self.mostrar_menu_registro_admin()
+        ttk.Button(
+            frame,
+            text="Crear usuario",
+            command=guardar_usuario,
+        ).grid(row=6, column=0, padx=8, pady=16, sticky="e")
+
+        ttk.Button(
+            frame,
+            text="Cancelar",
+            command=self.mostrar_menu_registro_admin,
+        ).grid(row=6, column=1, padx=8, pady=16, sticky="w")
+
+
+    def abrir_registro_rostro_admin(self, id_usuario):
+        """Abre la captura guiada para un usuario existente o recién creado."""
         try:
             from reconocimiento_facial.registrar_rostro import abrir_registro_rostro
 
             self.ventana_registro_rostro = abrir_registro_rostro(
                 parent=self.root,
-                id_usuario=usuario["id_usuario"],
+                id_usuario=id_usuario,
                 al_completar=self.registro_finalizado,
             )
         except Exception as error:
             self.ventana_registro_rostro = None
             messagebox.showerror(
-                "No se pudo iniciar el registro",
+                "No se pudo iniciar el registro facial",
                 str(error),
                 parent=self.root,
             )
-            self.mostrar_standby()
+            # La cuenta ya creada se conserva, aunque no se abra la cámara.
+            self.mostrar_menu_registro_admin()
 
     # ============ result shared by both methods ============
-    def mostrar_resultado(self, resultado, accionar=True):
+    def mostrar_resultado(self, resultado, accionar=True, al_finalizar=None):
         """Shows the validation result - Wireframes: 06, 07"""
         self._en_resultado = True
         if accionar:
@@ -505,7 +673,7 @@ class InterfazControlAcceso(ControlAcceso):
                 "titulo": "ACCESO CONCEDIDO",
                 "mensaje": f"Bienvenido\n{self.identificador}",
                 "icono_color": "#27ae60",
-                "sonido": reproducir_sonido_exito
+                
             },
             "sin_permiso": {
                 "color": self.COLOR_DANGER,
@@ -513,7 +681,7 @@ class InterfazControlAcceso(ControlAcceso):
                 "titulo": "ACCESO DENEGADO",
                 "mensaje": "Usuario sin permisos",
                 "icono_color": "#e74c3c",
-                "sonido": reproducir_sonido_error
+                
             },
             "no_reconocido": {
                 "color": self.COLOR_DANGER,
@@ -521,7 +689,7 @@ class InterfazControlAcceso(ControlAcceso):
                 "titulo": "ACCESO DENEGADO",
                 "mensaje": "Usuario no reconocido",
                 "icono_color": "#e74c3c",
-                "sonido": reproducir_sonido_error
+                
             },
             "error_sistema": {
                 "color": self.COLOR_WARNING,
@@ -529,15 +697,14 @@ class InterfazControlAcceso(ControlAcceso):
                 "titulo": "ERROR DEL SISTEMA",
                 "mensaje": "Intente mas tarde",
                 "icono_color": "#f39c12",
-                "sonido": reproducir_sonido_alerta
+                
             }
         }
 
         config = resultados.get(resultado, resultados["no_reconocido"])
 
         # Play the sound for this result
-        if "sonido" in config:
-            config["sonido"]()
+        reproducir_mensaje_resultado(resultado)
 
         icono = tk.Label(
             frame,
@@ -576,8 +743,8 @@ class InterfazControlAcceso(ControlAcceso):
         )
         hora.pack(pady=10)
 
-        # Restart automatically in 4 seconds
-        self.programar_accion(4000, self.mostrar_standby)
+        destino = al_finalizar or self.mostrar_standby
+        self.programar_accion(4000, destino)
 
     # ============ screen helpers ============
     def limpiar_frame(self):
@@ -594,9 +761,10 @@ class InterfazControlAcceso(ControlAcceso):
             widget.destroy()
 
     def registro_finalizado(self, id_usuario=None):
+        """Vuelve al menú de administración al cerrar la captura facial."""
         self.ventana_registro_rostro = None
         try:
-            self.root.after_idle(self.mostrar_standby)
+            self.root.after_idle(self.mostrar_menu_registro_admin)
         except tk.TclError:
             pass
 
@@ -623,3 +791,17 @@ class InterfazControlAcceso(ControlAcceso):
                 mensaje,
                 parent=self.root,
             )
+
+    def mostrar_menu_administrador(self, id_usuario=None):
+        """Muestra la confirmación existente y después abre el menú."""
+        if id_usuario is not None:
+            self.id_administrador_actual = id_usuario
+            self.identificador = "Administrador"
+
+        self.ventana_facial = None
+        self._captura_metodo = "administracion"
+        self.mostrar_resultado(
+            "autorizado",
+            accionar=True,
+            al_finalizar=self.mostrar_menu_registro_admin,
+        )

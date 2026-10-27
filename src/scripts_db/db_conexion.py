@@ -24,8 +24,8 @@ def buscar_usuario(identificador_ingresado, clave_ingresada):
     conexion = conectar_bd()
     cursor = conexion.cursor(dictionary=True) 
     query = """
-        SELECT usuarios.id_usuario, usuarios.nombre, roles.nombre_rol,
-               roles.permiso_apertura, roles.permiso_administracion
+        SELECT usuarios.id_usuario, usuarios.nombre, usuarios.activo,
+        roles.nombre_rol, roles.permiso_apertura,roles.permiso_administracion
         FROM usuarios
         JOIN roles ON usuarios.id_rol = roles.id_rol
         WHERE usuarios.identificador = %s AND usuarios.clave_acceso = %s
@@ -57,6 +57,80 @@ def listar_usuarios_activos():
     finally:
         conexion.close()
 
+def listar_roles():
+    """Devuelve los roles disponibles para el formulario de usuario."""
+    conexion = conectar_bd()
+    try:
+        cursor = conexion.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                "SELECT id_rol, nombre_rol FROM roles ORDER BY nombre_rol"
+            )
+            return cursor.fetchall()
+        finally:
+            cursor.close()
+    finally:
+        conexion.close()
+
+
+def crear_usuario(nombre, identificador, clave_acceso, id_rol):
+    """Crea un usuario activo y devuelve su id_usuario."""
+    nombre = str(nombre or "").strip()
+    identificador = str(identificador or "").strip()
+    clave_acceso = str(clave_acceso or "")
+
+    if not nombre or not identificador or not clave_acceso:
+        raise ValueError("Completa el nombre, identificador y contraseña.")
+
+    try:
+        id_rol = int(id_rol)
+    except (TypeError, ValueError):
+        raise ValueError("Selecciona un rol válido.")
+
+    conexion = conectar_bd()
+    cursor = None
+
+    try:
+        cursor = conexion.cursor()
+
+        cursor.execute(
+            "SELECT id_rol FROM roles WHERE id_rol = %s",
+            (id_rol,),
+        )
+        if cursor.fetchone() is None:
+            raise ValueError("El rol seleccionado no existe.")
+
+        cursor.execute(
+            "SELECT id_usuario FROM usuarios WHERE identificador = %s",
+            (identificador,),
+        )
+        if cursor.fetchone() is not None:
+            raise ValueError("Ese identificador ya está registrado.")
+
+        cursor.execute(
+            """
+            INSERT INTO usuarios
+                (nombre, identificador, clave_acceso, id_rol, activo)
+            VALUES (%s, %s, %s, %s, 1)
+            """,
+            (nombre, identificador, clave_acceso, id_rol),
+        )
+        conexion.commit()
+        return cursor.lastrowid
+
+    except mysql.connector.IntegrityError as error:
+        conexion.rollback()
+        if error.errno == 1062:
+            raise ValueError("Ese identificador ya está registrado.") from error
+        raise
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexion.close()
+
 
 def registrar_intento(id_usuario, mecanismo, resultado):
     conexion = conectar_bd()
@@ -83,17 +157,27 @@ def validar_acceso(identificador_ingresado, clave_ingresada, mecanismo):
             registrar_intento(None, mecanismo, "no_reconocido")
             return "no_reconocido"
 
-        if usuario["permiso_apertura"] == 0:
+        if not usuario["activo"] or not usuario["permiso_apertura"]:
             print("Usuario reconocido pero sin permiso:", usuario["nombre"])
-            registrar_intento(usuario["id_usuario"], mecanismo, "sin_permiso")
+            registrar_intento(
+                usuario["id_usuario"],
+                mecanismo,
+                "sin_permiso",
+            )
             return "sin_permiso"
+
         print("Acceso autorizado para:", usuario["nombre"])
-        registrar_intento(usuario["id_usuario"], mecanismo, "autorizado")
+        registrar_intento(
+            usuario["id_usuario"],
+            mecanismo,
+            "autorizado",
+        )
         return "autorizado"
+
     except mysql.connector.Error as error:
         print("Error al consultar la base de datos:", error)
         return "error_sistema"
-
+    
 # ---- LAC-65: biometric data linked to users and their role permissions ----
 
 def obtener_permisos_por_usuario(id_usuario):
