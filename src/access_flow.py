@@ -18,8 +18,13 @@ Requirements for the object that uses this class:
     (a Tk root or headless_mode.TemporizadorFisico).
 """
 import time
-
-from access_logic import validar_acceso_por_botones, validar_acceso_por_rostro
+from access_logic import (
+    validar_acceso_por_botones,
+    validar_acceso_por_rostro,
+    buscar_administrador_por_credenciales,
+    obtener_administrador_activo,
+    registrar_autenticacion_administrador,
+)
 from hardware import ControlHardware, PINES_BOTONES
 
 
@@ -41,6 +46,7 @@ class ControlAcceso:
         self._pir_after = None
         # Keeping the timers lets them be cancelled when the app closes.
         self._acciones_after = set()
+        self._inicio_facial_programado = False
 
     @property
     def pir_activo(self):
@@ -119,7 +125,33 @@ class ControlAcceso:
         self.intentar_inicio_facial()
 
     def intentar_inicio_facial(self):
-        """Inicia el reconocedor al habilitarse la presencia del PIR."""
+        """Espera un momento para permitir que se elija pantalla o botones."""
+        if (
+            self._cerrando
+            or self._en_resultado
+            or self._captura_metodo is not None
+            or not self.pir_activo
+            or not getattr(self, "puede_facial", False)
+            or self._inicio_facial_programado
+        ):
+            return
+
+        abrir = getattr(self, "iniciar_reconocimiento_facial", None)
+        if not callable(abrir):
+            self.puede_facial = False
+            print(
+                "[FACIAL] La interfaz no tiene el método para abrir el reconocedor.",
+                flush=True,
+            )
+            return
+
+        self._inicio_facial_programado = True
+        self.root.after(2000, self._iniciar_facial_si_libre)
+
+    def _iniciar_facial_si_libre(self):
+        """Abre la cámara solo si ningún otro método tomó el intento."""
+        self._inicio_facial_programado = False
+
         if (
             self._cerrando
             or self._en_resultado
@@ -132,10 +164,8 @@ class ControlAcceso:
         abrir = getattr(self, "iniciar_reconocimiento_facial", None)
         if not callable(abrir):
             self.puede_facial = False
-            print("[FACIAL] La interfaz no tiene el método para abrir el reconocedor.", flush=True)
             return
 
-        # Reserva el intento para que botones y pantalla no lo ocupen.
         self._captura_metodo = "facial"
         print("[MÉTODO] Iniciando reconocimiento facial.", flush=True)
 
@@ -179,6 +209,8 @@ class ControlAcceso:
             elif pin is not None:
                 if self._en_resultado:
                     print("[IGNORADO] Mostrando resultado.", flush=True)
+                elif self._captura_metodo == "administracion":
+                    print("[IGNORADO] El menú de administración está abierto.", flush=True)
                 elif self._captura_metodo == "interfaz_grafica":
                     print("[IGNORADO] La pantalla está atendiendo este intento.", flush=True)
                 elif self._captura_metodo == "facial":
@@ -220,9 +252,31 @@ class ControlAcceso:
                 self.validar_botones()
 
     def validar_botones(self):
-        self.identificador = self._captura_id
-        resultado = validar_acceso_por_botones(self._captura_id, self._captura_clave)
-        self._captura_id = self._captura_clave = ""
+        identificador = self._captura_id
+        clave = self._captura_clave
+
+        mostrar_menu = getattr(self, "mostrar_menu_administrador", None)
+        if callable(mostrar_menu):
+            administrador = buscar_administrador_por_credenciales(
+                identificador,
+                clave,
+            )
+
+            if administrador is not None:
+                self.identificador = administrador["nombre"]
+                self._captura_id = ""
+                self._captura_clave = ""
+
+                if self._abrir_menu_admin(
+                    administrador["id_usuario"],
+                    "botones",
+                ):
+                    return
+
+        self.identificador = identificador
+        resultado = validar_acceso_por_botones(identificador, clave)
+        self._captura_id = ""
+        self._captura_clave = ""
         self.mostrar_resultado(resultado)
 
     # ============ facial identification ============
@@ -252,6 +306,35 @@ class ControlAcceso:
                 self.identificador = f"Usuario {id_usuario}"
 
         print("[MÉTODO] Rostro.", flush=True)
+
+        mostrar_menu = getattr(self, "mostrar_menu_administrador", None)
+        if id_usuario is not None and callable(mostrar_menu):
+            administrador = obtener_administrador_activo(id_usuario)
+
+            if administrador is not None:
+                self.identificador = administrador["nombre"]
+                if self._abrir_menu_admin(id_usuario, "facial"):
+                    return True
+                
         resultado = validar_acceso_por_rostro(id_usuario)
         self.mostrar_resultado(resultado)
+        return True
+
+    def _abrir_menu_admin(self, id_usuario, mecanismo):
+        """Abre el menú administrativo sin mostrar resultado de puerta ni mover el servo."""
+        mostrar_menu = getattr(self, "mostrar_menu_administrador", None)
+
+        # El modo sin interfaz no puede mostrar el menú gráfico.
+        if not callable(mostrar_menu):
+            return False
+
+        self._captura_metodo = "administracion"
+        self._captura_id = ""
+        self._captura_clave = ""
+
+        if not registrar_autenticacion_administrador(id_usuario, mecanismo):
+            self.mostrar_resultado("error_sistema")
+            return True
+
+        mostrar_menu(id_usuario)
         return True

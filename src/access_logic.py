@@ -27,12 +27,69 @@ try:
     from scripts_db.db_conexion import validar_acceso_facial
 except ImportError:
     validar_acceso_facial = None
+
+try:
+    from scripts_db.db_conexion import obtener_permisos_por_usuario
+except ImportError:
+    obtener_permisos_por_usuario = None
+
+def buscar_administrador_por_credenciales(identificador, clave):
+    """Devuelve el usuario si está activo y tiene permiso de administración."""
+    if buscar_usuario is None:
+        return None
+
+    try:
+        usuario = buscar_usuario(identificador, clave)
+        if (
+            usuario
+            and usuario.get("activo")
+            and usuario.get("permiso_administracion")
+        ):
+            return usuario
+    except Exception as error:
+        print("Error al comprobar administrador:", error, flush=True)
+
+    return None
+
+
+def obtener_administrador_activo(id_usuario):
+    """Devuelve los datos si el usuario activo tiene permiso de administración."""
+    if obtener_permisos_por_usuario is None:
+        return None
+
+    try:
+        usuario = obtener_permisos_por_usuario(id_usuario)
+        if (
+            usuario
+            and usuario.get("activo")
+            and usuario.get("permiso_administracion")
+        ):
+            return usuario
+    except Exception as error:
+        print("Error al comprobar permisos administrativos:", error, flush=True)
+
+    return None
+
+
+def registrar_autenticacion_administrador(id_usuario, mecanismo):
+    """Registra el acceso al menú administrativo usando el método de autenticación."""
+    if registrar_intento is None:
+        return False
+
+    try:
+        registrar_intento(id_usuario, mecanismo, "autorizado")
+        return True
+    except Exception as error:
+        print("Error al registrar autenticación administrativa:", error, flush=True)
+        return False
+        
 def normalizar_rol(nombre):
     # Allows comparing "Servicio técnico" and "servicio_tecnico" without
     # differences in accents, case or separators.
     texto = unicodedata.normalize("NFKD", str(nombre or ""))
     texto = "".join(c for c in texto if not unicodedata.combining(c))
     return " ".join(texto.lower().replace("_", " ").split())
+
 def validar_acceso_por_rol(identificador, clave, rol_seleccionado):
     """Uses the existing DB functions and logs a single final decision."""
     if buscar_usuario is None or registrar_intento is None:
@@ -49,10 +106,17 @@ def validar_acceso_por_rol(identificador, clave, rol_seleccionado):
                           "admin": "administrador"}.get(rol_seleccionado)
             # The administrator can choose any role but also needs opening
             # permission. Everyone else can only choose their own role.
-            es_admin = (rol_real == "administrador" and bool(usuario["permiso_administracion"]))
-            if not usuario["permiso_apertura"] or rol_pedido is None:
+            es_admin = bool(usuario.get("permiso_administracion"))
+
+            if not usuario.get("activo") or rol_pedido is None:
                 resultado = "sin_permiso"
-            elif es_admin or (rol_real == rol_pedido and rol_pedido != "administrador"):
+            elif rol_pedido == "administrador":
+                # Entrar al menú requiere permiso administrativo,
+                # no permiso para abrir la puerta.
+                resultado = "autorizado" if es_admin else "sin_permiso"
+            elif not usuario.get("permiso_apertura"):
+                resultado = "sin_permiso"
+            elif es_admin or rol_real == rol_pedido:
                 resultado = "autorizado"
             else:
                 resultado = "sin_permiso"
