@@ -63,13 +63,30 @@ class ControlAcceso:
     def on_closing(self):
         if self._cerrando:
             return
+
         self._cerrando = True
-        for token in [self._pir_after, self._hardware_after, *self._acciones_after]:
+
+        cerrar_facial = getattr(self, "cerrar_reconocimiento_facial", None)
+        if callable(cerrar_facial):
+            try:
+                cerrar_facial()
+            except Exception as error:
+                print(
+                    f"[FACIAL] Error al cerrar la ventana: {error}",
+                    flush=True,
+                )
+
+        for token in [
+            self._pir_after,
+            self._hardware_after,
+            *self._acciones_after,
+        ]:
             if token:
                 try:
                     self.root.after_cancel(token)
                 except Exception:
                     pass
+
         self.hardware.cerrar_hardware()
         self.hardware.limpiar_lock()
         self.root.destroy()
@@ -99,6 +116,39 @@ class ControlAcceso:
         # monotonic measures intervals without depending on system clock changes.
         ocupado = self._en_resultado or self._captura_metodo is not None
         self.hardware.pir.actualizar(ahora, ocupado, self.anunciar_sistema_listo)
+        self.intentar_inicio_facial()
+
+    def intentar_inicio_facial(self):
+        """Inicia el reconocedor al habilitarse la presencia del PIR."""
+        if (
+            self._cerrando
+            or self._en_resultado
+            or self._captura_metodo is not None
+            or not self.pir_activo
+            or not getattr(self, "puede_facial", False)
+        ):
+            return
+
+        abrir = getattr(self, "iniciar_reconocimiento_facial", None)
+        if not callable(abrir):
+            self.puede_facial = False
+            print("[FACIAL] La interfaz no tiene el método para abrir el reconocedor.", flush=True)
+            return
+
+        # Reserva el intento para que botones y pantalla no lo ocupen.
+        self._captura_metodo = "facial"
+        print("[MÉTODO] Iniciando reconocimiento facial.", flush=True)
+
+        try:
+            abrir()
+        except Exception as error:
+            fallo = getattr(self, "fallo_facial", None)
+            if callable(fallo):
+                fallo(str(error))
+            else:
+                self._captura_metodo = None
+                self.puede_facial = False
+                print(f"[FACIAL] No se pudo abrir el reconocedor: {error}", flush=True)
 
     # ============ button capture ============
     def cancelar_captura_fisica(self):
@@ -177,22 +227,31 @@ class ControlAcceso:
 
     # ============ facial identification ============
     def procesar_identificacion_facial(self, id_usuario):
-        """Entry point of the facial method, called by the recognition code once
-        per identification attempt: id_usuario is the identified user, or None
-        for an unknown face. It must be called from the main loop thread (not
-        from a camera thread), because Tk is not thread-safe.
-
-        Same rules as the other methods: one operation at a time and only with
-        presence enabled. Returns False when the attempt was ignored."""
-        if self._en_resultado or self._captura_metodo is not None:
+        """Procesa el usuario identificado y muestra el resultado de acceso."""
+        if self._en_resultado or self._captura_metodo not in (None, "facial"):
             print("[IGNORADO] Hay otra operación en curso.", flush=True)
             return False
-        if not self.pir_activo:
-            print("[IGNORADO] Sin presencia habilitada. Espere la estabilización y acérquese al PIR.", flush=True)
+
+        if self._captura_metodo is None and not self.pir_activo:
+            print("[IGNORADO] Sin presencia habilitada.", flush=True)
             return False
+
         self._captura_metodo = "facial"
+        self.identificador = ""
+
+        if id_usuario is not None:
+            try:
+                from scripts_db.db_conexion import obtener_permisos_por_usuario
+
+                usuario = obtener_permisos_por_usuario(id_usuario)
+                self.identificador = (
+                    usuario.get("nombre") if usuario else None
+                ) or f"Usuario {id_usuario}"
+            except Exception as error:
+                print(f"[FACIAL] No se pudo consultar el nombre: {error}", flush=True)
+                self.identificador = f"Usuario {id_usuario}"
+
         print("[MÉTODO] Rostro.", flush=True)
-        self.identificador = ""  # no typed identifier to greet with
         resultado = validar_acceso_por_rostro(id_usuario)
         self.mostrar_resultado(resultado)
         return True

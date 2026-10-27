@@ -1,11 +1,8 @@
 """Access logic module: decides whether an access attempt is authorized.
-
 It only depends on scripts_db.db_conexion, so it can be imported on any
 machine (no GPIO, no Tkinter). Both authentication paths (screen and
 buttons) end here, and both return one of these results:
-
-    "autorizado", "sin_permiso", "no_reconocido", "error_sistema"
-
+"autorizado", "sin_permiso", "no_reconocido", "error_sistema"
 Public interface:
     normalizar_rol(nombre) -> str
     validar_acceso_por_rol(identificador, clave, rol_seleccionado) -> str
@@ -17,29 +14,25 @@ Public interface:
         db_conexion reads the role permissions and logs "facial".
 """
 import unicodedata
-
 try:
-    from scripts_db.db_conexion import validar_acceso, buscar_usuario, registrar_intento
+    from scripts_db.db_conexion import (
+        validar_acceso,
+        buscar_usuario,
+        registrar_intento,
+    )
 except ImportError:
     print("Error: No se pudo importar db_conexion. No se autorizarán accesos.")
     validar_acceso = buscar_usuario = registrar_intento = None
-
-# Imported on its own: while the facial functions are not in db_conexion yet,
-# a missing name must not disable the button and screen paths.
 try:
     from scripts_db.db_conexion import validar_acceso_facial
 except ImportError:
     validar_acceso_facial = None
-
-
 def normalizar_rol(nombre):
     # Allows comparing "Servicio técnico" and "servicio_tecnico" without
     # differences in accents, case or separators.
     texto = unicodedata.normalize("NFKD", str(nombre or ""))
     texto = "".join(c for c in texto if not unicodedata.combining(c))
     return " ".join(texto.lower().replace("_", " ").split())
-
-
 def validar_acceso_por_rol(identificador, clave, rol_seleccionado):
     """Uses the existing DB functions and logs a single final decision."""
     if buscar_usuario is None or registrar_intento is None:
@@ -71,8 +64,6 @@ def validar_acceso_por_rol(identificador, clave, rol_seleccionado):
     except Exception as error:
         print("Error al validar usuario y rol:", error, flush=True)
         return "error_sistema"
-
-
 def validar_acceso_por_botones(identificador, clave):
     """Button path: there is no role chosen on screen, so the original DB
     function validates the credentials and the opening permission and logs
@@ -83,8 +74,6 @@ def validar_acceso_por_botones(identificador, clave):
     except Exception as error:
         print("Error al validar botones:", error)
         return "error_sistema"
-
-
 def validar_acceso_por_rostro(id_usuario):
     """Facial path: same result vocabulary as the other methods. The identified
     user (or None for an unknown face) is judged by db_conexion, which reads the
