@@ -25,6 +25,8 @@ from hardware import ControlHardware, PINES_BOTONES
 
 class ControlAcceso:
 
+    puede_facial = False  # only the GUI mode sets it to True
+
     def preparar_estado(self):
         # Used with a window and in physical mode: both share the same rules
         # for capture, presence, exclusion and cleanup.
@@ -59,11 +61,18 @@ class ControlAcceso:
     def notificar_error_hardware(self, error):
         pass
 
+    def iniciar_reconocimiento_facial(self):
+        pass
+
+    def cerrar_reconocimiento_facial(self):
+        pass
+
     # ============ closing ============
     def on_closing(self):
         if self._cerrando:
             return
         self._cerrando = True
+        self.cerrar_reconocimiento_facial()        
         for token in [self._pir_after, self._hardware_after, *self._acciones_after]:
             if token:
                 try:
@@ -99,6 +108,39 @@ class ControlAcceso:
         # monotonic measures intervals without depending on system clock changes.
         ocupado = self._en_resultado or self._captura_metodo is not None
         self.hardware.pir.actualizar(ahora, ocupado, self.anunciar_sistema_listo)
+        self.intentar_inicio_facial()
+
+    # ============ facial capture ============
+    def intentar_inicio_facial(self):
+        # The PIR enabled an attempt and no other method has it: facial takes it.
+        if (not self.puede_facial or self._cerrando or self._en_resultado
+                or self._captura_metodo is not None or not self.pir_activo):
+            return
+        self._captura_metodo = "facial"
+        print("[MÉTODO] Reconocimiento facial; pantalla y botones en espera.", flush=True)
+        try:
+            self.iniciar_reconocimiento_facial()
+        except Exception as error:
+            self.fallo_facial(f"No se pudo iniciar el reconocimiento: {error}")
+
+    def procesar_identificacion_facial(self, id_usuario):
+        """Called once per attempt by the recognizer, in the Tk main thread."""
+        if self._cerrando or self._captura_metodo != "facial" or self._en_resultado:
+            return
+        self.identificador = "" if id_usuario is None else str(id_usuario)
+        self.mostrar_resultado(validar_acceso_por_rostro(id_usuario))
+
+    def cancelar_facial(self):
+        if not self._cerrando and self._captura_metodo == "facial":
+            self.mostrar_standby()
+
+    def fallo_facial(self, mensaje):
+        # Camera, models or database unavailable: report it, turn facial off and
+        # keep the screen and button methods working.
+        print("[FACIAL] No disponible:", mensaje, flush=True)
+        self.puede_facial = False
+        if not self._cerrando and self._captura_metodo == "facial":
+            self.mostrar_standby()
 
     # ============ button capture ============
     def cancelar_captura_fisica(self):
@@ -146,6 +188,7 @@ class ControlAcceso:
             print("Error en hardware:", error)
             self.notificar_error_hardware(error)
             self.on_closing()
+
             return
         # Polling about every 20 ms; the synchronous MySQL query can delay it
         # during validation, when no more digits are accepted anyway.

@@ -20,9 +20,10 @@ import unicodedata
 
 try:
     from scripts_db.db_conexion import validar_acceso, buscar_usuario, registrar_intento
+    from scripts_db.db_conexion import validar_acceso_facial
 except ImportError:
     print("Error: No se pudo importar db_conexion. No se autorizarán accesos.")
-    validar_acceso = buscar_usuario = registrar_intento = None
+    validar_acceso = buscar_usuario = registrar_intento = validar_acceso_facial = None
 
 # Imported on its own: while the facial functions are not in db_conexion yet,
 # a missing name must not disable the button and screen paths.

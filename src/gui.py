@@ -26,6 +26,8 @@ from hardware import PIR_PIN
 
 class InterfazControlAcceso(ControlAcceso):
     """Graphical interface for the local access control system."""
+    puede_facial = True
+    ventana_facial = None
 
     def __init__(self, root):
         self.root = root
@@ -167,7 +169,7 @@ class InterfazControlAcceso(ControlAcceso):
 
     def validar_entrada_space(self, event):
         """Checks whether the user can move on when pressing space"""
-        if self._captura_metodo == "botones":
+        if self._captura_metodo in ("botones", "facial") or self._en_resultado:
             return "break"
         self.actualizar_presencia(time.monotonic())
         if not self.pir_activo:
@@ -180,6 +182,20 @@ class InterfazControlAcceso(ControlAcceso):
         print("[MÉTODO] Pantalla seleccionada; botones físicos en espera.", flush=True)
         self.mostrar_seleccion_rol()
         return "break"
+    
+    # ============ facial recognition ============
+    def iniciar_reconocimiento_facial(self):
+        from reconocimiento_facial.reconocer_rostro import abrir_reconocimiento
+        self.ventana_facial = abrir_reconocimiento(
+            self.root,
+            callback_identificacion=self.procesar_identificacion_facial,
+            callback_cancelacion=self.cancelar_facial,
+            callback_error=self.fallo_facial,
+        )
+
+    def cerrar_reconocimiento_facial(self):
+        if self.ventana_facial is not None:
+            self.ventana_facial.cerrar()
 
     # ============ role selection ============
     def mostrar_seleccion_rol(self):

@@ -140,12 +140,14 @@ class VentanaReconocimiento:
     def __init__(
         self,
         parent,
-        callback_resultado=None,
+        callback_identificacion=None,
         callback_cancelacion=None,
+        callback_error=None,
     ):
         self.parent = parent
-        self.callback_resultado = callback_resultado
+        self.callback_identificacion = callback_identificacion
         self.callback_cancelacion = callback_cancelacion
+        self.callback_error = callback_error
 
         self.ventana = tk.Toplevel(parent)
         self.ventana.title("Reconocimiento facial")
@@ -186,23 +188,7 @@ class VentanaReconocimiento:
                 raise RuntimeError(detalle)
 
         except Exception as error:
-            self.mostrar_estado(
-                "RECONOCIMIENTO NO DISPONIBLE",
-                str(error),
-                "error",
-            )
-            messagebox.showerror(
-                "No se pudo iniciar el reconocimiento",
-                str(error),
-                parent=self.ventana,
-            )
-            self.resultado_final = True
-
-            if self.callback_resultado is not None:
-                self.resultado_pendiente = "error_sistema"
-                self.ventana.after_idle(self.entregar_resultado)
-            else:
-                self.ventana.after_idle(self.cerrar)
+            self.terminar(error=str(error))
             return
 
         self.after_id = self.ventana.after(30, self.actualizar_video)
@@ -355,80 +341,28 @@ class VentanaReconocimiento:
 
         # El reconocedor de base de datos registra el intento facial y valida
         # que el usuario siga activo y tenga permiso de apertura.
-        if (
-            mejor_id_usuario is not None
-            and mejor_puntaje >= UMBRAL_SIMILITUD
-        ):
-            id_reconocido = mejor_id_usuario
+        if mejor_id_usuario is not None and mejor_puntaje >= UMBRAL_SIMILITUD:
+            self.terminar(id_usuario=mejor_id_usuario)
         else:
-            id_reconocido = None
+            self.terminar(id_usuario=None)
 
-        try:
-            resultado = validar_acceso_facial(id_reconocido)
-        except Exception as error:
-            print("[FACIAL] Error al validar el acceso:", error, flush=True)
-            resultado = "error_sistema"
-
-        self.finalizar_resultado(
-            resultado=resultado,
-            id_usuario=id_reconocido,
-            puntaje=mejor_puntaje,
-        )
-
-    def finalizar_resultado(self, resultado, id_usuario, puntaje=None):
-        """Muestra y entrega una sola decisión; evita registrar intentos repetidos."""
-
+    def terminar(self, id_usuario=None, error=None):
+        """Una sola salida por intento: id (o None) o un error."""
         if self.resultado_final:
             return
-
         self.resultado_final = True
-        self.resultado_pendiente = resultado
-        self.id_usuario_pendiente = id_usuario
-
         if self.camara is not None:
             self.camara.release()
+            self.camara = None
+        self.ventana.after_idle(self.entregar, id_usuario, error)
 
-        if resultado == "autorizado":
-            detalle = f"Usuario {id_usuario}"
-            if puntaje is not None:
-                detalle += f" · Similitud: {puntaje:.3f}"
-            self.mostrar_estado("ACCESO AUTORIZADO", detalle, "autorizado")
-
-        elif resultado == "sin_permiso":
-            detalle = f"El usuario {id_usuario} no tiene permiso de apertura."
-            self.mostrar_estado("ACCESO DENEGADO", detalle, "denegado")
-
-        elif resultado == "no_reconocido":
-            detalle = "El rostro no coincide con un usuario activo."
-            if puntaje is not None and puntaje >= 0:
-                detalle += f" Similitud: {puntaje:.3f}"
-            self.mostrar_estado("ACCESO DENEGADO", detalle, "denegado")
-
-        else:
-            self.mostrar_estado(
-                "ERROR DEL SISTEMA",
-                "No se pudo completar la validación facial.",
-                "error",
-            )
-
-        if self.callback_resultado is not None:
-            self.ventana.after_idle(self.entregar_resultado)
-
-    def entregar_resultado(self):
-        """Envía la decisión al flujo principal y cierra la ventana de cámara."""
-
-        if self.terminado:
-            return
-
-        try:
-            self.callback_resultado(
-                self.resultado_pendiente,
-                self.id_usuario_pendiente,
-            )
-        except Exception as error:
-            print("[FACIAL] Error al entregar el resultado:", error, flush=True)
-        finally:
-            self.cerrar()
+    def entregar(self, id_usuario, error):
+        self.cerrar()  # libera la cámara y cierra la ventana
+        if error is not None:
+            if self.callback_error is not None:
+                self.callback_error(error)
+        elif self.callback_identificacion is not None:
+            self.callback_identificacion(id_usuario)
 
     # -----------------------------------------------------------------------
     # Cámara y vista previa
@@ -439,18 +373,16 @@ class VentanaReconocimiento:
 
         if self.terminado or self.resultado_final:
             return
-
+        if self.contador_cuadros > 600:  # ~20 s sin decisión: cancela el intento
+            self.cerrar()
+            return
         imagen = self.camara.read_frame() if self.camara is not None else None
 
         if imagen is None:
             self.fallos_lectura += 1
 
             if self.fallos_lectura >= MAX_FALLOS_CAMARA:
-                self.finalizar_resultado(
-                    "error_sistema",
-                    None,
-                    detalle="La cámara dejó de enviar imágenes.",
-                )
+                self.terminar(error="La cámara dejó de enviar imágenes.")
                 return
 
             self.after_id = self.ventana.after(100, self.actualizar_video)
@@ -529,27 +461,14 @@ class VentanaReconocimiento:
 
 def abrir_reconocimiento(
     parent,
-    callback_resultado=None,
+    callback_identificacion=None,
     callback_cancelacion=None,
+    callback_error=None,
 ):
     """Abre el reconocimiento como ventana secundaria de la aplicación."""
     return VentanaReconocimiento(
         parent,
-        callback_resultado=callback_resultado,
+        callback_identificacion=callback_identificacion,
         callback_cancelacion=callback_cancelacion,
+        callback_error=callback_error,
     )
-
-
-if __name__ == "__main__":
-    # Ejecución manual desde src:
-    # python -m reconocimiento_facial.reconocer_rostro
-    ventana_principal = tk.Tk()
-    ventana_principal.withdraw()
-
-    app = VentanaReconocimiento(
-        ventana_principal,
-        callback_resultado=None,
-        callback_cancelacion=None,
-    )
-
-    ventana_principal.mainloop()
