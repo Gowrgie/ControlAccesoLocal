@@ -375,7 +375,7 @@ class VentanaReconocimiento:
             puntaje=mejor_puntaje,
         )
 
-    def finalizar_resultado(self, resultado, id_usuario, puntaje=None):
+    def finalizar_resultado(self, resultado, id_usuario, puntaje=None, detalle=None):
         """Muestra y entrega una sola decisión; evita registrar intentos repetidos."""
 
         if self.resultado_final:
@@ -407,7 +407,7 @@ class VentanaReconocimiento:
         else:
             self.mostrar_estado(
                 "ERROR DEL SISTEMA",
-                "No se pudo completar la validación facial.",
+                detalle or "No se pudo completar la validación facial.",
                 "error",
             )
 
