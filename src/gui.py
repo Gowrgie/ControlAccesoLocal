@@ -21,6 +21,7 @@ from datetime import datetime
 from access_flow import ControlAcceso
 from access_logic import validar_acceso_por_rol
 from audio import reproducir_sonido_exito, reproducir_sonido_error, reproducir_sonido_alerta
+from reconocimiento_facial.reconocer_rostro import abrir_reconocimiento
 from hardware import PIR_PIN
 
 
