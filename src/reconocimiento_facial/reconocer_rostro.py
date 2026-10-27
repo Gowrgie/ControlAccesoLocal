@@ -10,10 +10,7 @@ import numpy as np
 from PIL import Image, ImageTk
 
 from camera import Camera
-from scripts_db.db_conexion import (
-    cargar_embeddings_activos,
-    validar_acceso_facial,
-)
+from scripts_db.db_conexion import cargar_embeddings_activos
 from .calidad_captura import evaluar_calidad
 
 

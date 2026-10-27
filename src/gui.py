@@ -598,3 +598,27 @@ class InterfazControlAcceso(ControlAcceso):
             self.root.after_idle(self.mostrar_standby)
         except tk.TclError:
             pass
+
+    def cancelar_facial(self):
+        """Libera el intento facial cancelado y vuelve a la espera."""
+        if self._cerrando or self._en_resultado:
+            return
+
+        print("[FACIAL] Reconocimiento cancelado.", flush=True)
+        self.mostrar_standby()
+
+    def fallo_facial(self, mensaje):
+        """Informa el error y deja disponibles los métodos alternativos."""
+        if self._cerrando:
+            return
+
+        print(f"[FACIAL] Error en el reconocedor: {mensaje}", flush=True)
+        self.puede_facial = False
+        self.mostrar_standby()
+
+        if messagebox is not None:
+            messagebox.showerror(
+                "Reconocimiento facial",
+                mensaje,
+                parent=self.root,
+            )
