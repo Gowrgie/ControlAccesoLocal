@@ -1,41 +1,56 @@
-# Trazabilidad
+# Traceability
 
-Este archivo relaciona los requerimientos del sistema con los cambios realizados en el repositorio y la evidencia disponible para su validación.
+This document links the system requirements with the Jira tasks, project changes, and available validation evidence.
 
-## Requerimientos funcionales
+## Functional Requirements
 
-| Requerimiento | Issue | PR / cambio | Evidencia de validación |
+| Requirement | Jira Key | PR / Change | Validation Evidence |
 |---|---|---|---|
-| RF-01 | #5 | PR #9, #11 | El sistema captura los datos ingresados, los compara con la información almacenada y determina si el acceso se autoriza o se rechaza. |
-| RF-02 | #35, #39 | PR #36, #38 | El sistema identifica al usuario y recibe una clave de entre 4 y 6 pulsaciones para realizar la validación. |
-| RF-03 | #5 | PR #7 | El sistema enciende el LED verde cuando el acceso es válido y el LED rojo cuando es rechazado. |
-| RF-04 | #5 | PR #9 | Después de cada operación se limpian los datos capturados y el sistema queda listo para una nueva entrada. |
-| RF-05 | #5 | PR #9 | Si pasan más de 4 segundos sin una nueva pulsación, la captura incompleta se descarta y el sistema regresa al estado de espera. |
-| RF-06 | #5 | PR #9 | El buzzer emite un sonido cuando el sistema regresa al estado de espera y está listo para una nueva captura. |
-| RF-07 | #5 | PR #7 | El buzzer emite tres tonos cortos al validar un acceso y un tono largo cuando ocurre una falla del sistema. |
-| RF-08 | #23, #24 | PR #37 | El sensor PIR detecta la presencia de una persona y habilita la interacción con el sistema. |
-| RF-09 | #29 | PR #40 | La interfaz gráfica permite ingresar el usuario y la clave, además de mostrar el resultado de la validación. |
-| RF-10 | #29 | PR #40 | La interfaz gráfica se muestra en el monitor conectado a la Raspberry Pi para permitir la interacción con el usuario. |
-| RF-11 | #33, #35, #39 | PR #32, #36, #38 | MySQL almacena la información de usuarios y registra cada intento de acceso con sus datos correspondientes. |
-| RF-12 | #28, #35 | PR #30, #36 | El sistema identifica los roles de administrador, servicio técnico y usuario general, aplicando permisos diferentes a cada uno. |
-| RF-13 | #35, #39 | PR #36, #38 | El sistema valida usuario, clave, rol y permisos, diferenciando accesos autorizados, sin permiso, datos incorrectos y fallas de consulta. |
-| RF-14 | #5, #39 | PR #3, #38 | Los botones físicos permiten ingresar la clave utilizando la misma lógica de validación empleada por la interfaz gráfica. |
-| RF-15 | #23, #24 | PR #37 | Si la interfaz gráfica o el monitor no están disponibles, el acceso puede completarse mediante los botones físicos. |
-| RF-16 | #23, #24 | PR #37 | Cuando el acceso es autorizado, el sistema reproduce el mensaje de audio "Acceso correcto". |
-| RF-17 | #23, #24 | PR #37 | Al autorizar el acceso se activa un motor y, después de 3 segundos, ambos regresan a su posición de reposo. |
-| RF-18 | #5, #24 | PR #9, #37 | Después de cada operación el sistema regresa al estado de espera, sin importar el resultado o método de captura utilizado. |
+| FR-01 | LAC-55, LAC-58 | `access_flow.py`, `access_logic.py` | The system captures access data, validates it against local information, and returns an authorized or denied result. |
+| FR-02 | LAC-55, LAC-58 | `access_flow.py` | The physical flow captures a user identifier and a passcode of 4 to 6 inputs. |
+| FR-03 | LAC-55, LAC-57 | `hardware.py` | Green and red LEDs indicate authorized and denied access results. |
+| FR-04 | LAC-55, LAC-57 | `access_flow.py`, `headless_mode.py` | Captured data is cleared after each operation, allowing a new access attempt. |
+| FR-05 | LAC-55, LAC-57 | `access_flow.py` | An incomplete physical capture is discarded when more than 4 seconds pass without input. |
+| FR-06 | LAC-55, LAC-57 | `hardware.py`, `headless_mode.py` | The buzzer indicates when the system returns to standby and is ready again. |
+| FR-07 | LAC-55, LAC-57 | `hardware.py` | The system provides buzzer tones for access results and a different sound for system failures. |
+| FR-08 | LAC-55, LAC-57 | `hardware.py`, system flow diagrams | The PIR sensor detects presence before enabling an access operation. |
+| FR-09 | LAC-29, LAC-55 | `gui.py`, wireframes | The Python GUI supports user identification, passcode entry, and access result display. |
+| FR-10 | LAC-29, LAC-55 | `gui.py` | The graphical interface is designed for the monitor connected to the Raspberry Pi. |
+| FR-11 | LAC-53, LAC-55, LAC-66 | `db_conexion.py`, `database.py` | MySQL stores user information and access attempts, including the authentication method and result. |
+| FR-12 | LAC-55, LAC-65 | `db_conexion.py`, database schema | Users are associated with roles and permissions used during access validation. |
+| FR-13 | LAC-55, LAC-65, LAC-67 | `access_logic.py`, `db_conexion.py` | The system distinguishes authorized access, missing permissions, invalid users, and system errors. |
+| FR-14 | LAC-55, LAC-57 | `access_flow.py`, `headless_mode.py` | Physical buttons use the same access validation logic as the graphical interface. |
+| FR-15 | LAC-55, LAC-57 | `headless_mode.py` | Physical-button authentication can operate without the graphical interface. |
+| FR-16 | LAC-55, LAC-57 | `audio.py` | Authorized access plays the "Access granted" audio message. |
+| FR-17 | LAC-55, LAC-57 | `hardware.py`, system diagrams | Authorized access activates the motor and returns it to its resting position after 3 seconds. |
+| FR-18 | LAC-55, LAC-57 | `access_flow.py`, `headless_mode.py` | The system clears the operation data and returns to standby after each access attempt. |
+| FR-19 | LAC-47, LAC-51, LAC-65 | `registrar_rostro.py`, `calidad_captura.py`, `camera.py`, `database.py` | Facial enrollment guides the user through five captures, checks image quality, and stores the facial samples in MySQL. |
+| FR-20 | LAC-47, LAC-51, LAC-67 | `reconocer_rostro.py`, `calidad_captura.py`, `camera.py` | Facial detection and identification use YuNet and SFace locally, without cloud recognition services. |
+| FR-21 | LAC-53, LAC-65, LAC-71 | `registrar_rostro.py`, `database.py`, `db_conexion.py` | Each facial sample is stored with a user ID, linking biometric data to the corresponding local user and permissions. |
+| FR-22 | LAC-65, LAC-67 | `reconocer_rostro.py`, `access_flow.py`, `access_logic.py`, `db_conexion.py` | After identifying a face, the system checks the user's permissions and determines whether access is allowed. |
+| FR-23 | LAC-67 | `reconocer_rostro.py`, `access_logic.py`, `db_conexion.py` | Unknown faces are rejected when no stored facial sample meets the recognition threshold. |
 
-## Requerimientos no funcionales
+## Non-Functional Requirements
 
-| Requerimiento | Issue | PR / cambio | Evidencia de validación |
+| Requirement | Jira Key | PR / Change | Validation Evidence |
 |---|---|---|---|
-| RNF-01 | #5 | PR #3, #9 | Se aplica control de rebote en los botones para evitar que una misma pulsación sea registrada más de una vez. |
-| RNF-02 | #35, #39 | PR #36, #38 | La información de usuarios, claves, roles y permisos se conserva en la base de datos y su modificación está restringida al administrador. |
-| RNF-03 | #5 | PR #9 | El sistema presenta el resultado de la validación dentro del tiempo máximo establecido de 1 segundo. |
-| RNF-04 | #24 | PR #37 | El sensor PIR detecta la presencia y habilita la interacción dentro del tiempo máximo de 1 segundo. |
-| RNF-05 | #29 | PR #40 | La interfaz gráfica permite realizar la identificación y validación de forma sencilla y sin capacitación previa. |
-| RNF-06 | #39 | PR #38 | Las consultas a MySQL se realizan dentro del límite de 2 segundos y un tiempo mayor se maneja como falla. |
-| RNF-07 | #5, #24 | PR #3, #37 | El sistema permite continuar la operación mediante botones físicos cuando la interfaz gráfica o el monitor no están disponibles. |
-| RNF-08 | #24 | PR #37 | El mensaje de audio "Acceso correcto" puede escucharse a una distancia mínima de 1 metro del punto de acceso. |
-| RNF-09 | #35, #39 | PR #36, #38 | Los intentos de acceso quedan almacenados para su consulta posterior y no pueden modificarse desde las interfaces de acceso. |
-| RNF-10 | #24 | PR #37 | El sistema procesa una sola operación de acceso a la vez para evitar validaciones simultáneas por GUI y botones. |
+| NFR-01 | LAC-55 | `hardware.py`, `access_flow.py` | Button inputs include debounce handling to prevent duplicate readings. |
+| NFR-02 | LAC-53, LAC-65, LAC-71 | `database.py`, `db_conexion.py`, database scripts | User information and biometric records are stored locally with controlled database operations. |
+| NFR-03 | LAC-55 | `access_flow.py`, `access_logic.py` | Access validation is processed locally. The 1-second response limit still requires a measured test. |
+| NFR-04 | LAC-55 | `hardware.py`, `gui.py` | PIR detection is integrated into the access flow. The 1-second detection limit requires hardware testing. |
+| NFR-05 | LAC-29 | `gui.py`, wireframes | The interface provides simple screens for identification and access results. |
+| NFR-06 | LAC-55, LAC-65 | `db_conexion.py` | Database failures are handled separately from normal access denial. The 2-second query limit requires verification. |
+| NFR-07 | LAC-55, LAC-57 | `headless_mode.py` | Physical buttons allow authentication without depending on the graphical desktop interface. |
+| NFR-08 | LAC-55 | `audio.py` | The authorized-access audio is implemented. Its audibility at 1 meter requires physical testing. |
+| NFR-09 | LAC-53, LAC-66 | `db_conexion.py` | Access attempts are stored in MySQL for later consultation, separately from the user interfaces. |
+| NFR-10 | LAC-55 | `gui.py`, `access_flow.py` | The access flow controls operations to avoid simultaneous authentication through different interfaces. |
+| NFR-11 | LAC-47, LAC-51, LAC-55, LAC-67 | `reconocer_rostro.py`, `registrar_rostro.py`, `calidad_captura.py`, `camera.py`, `access_flow.py`, `access_logic.py`, `db_conexion.py` | Facial recognition, biometric comparison, database queries, and access decisions are processed locally without cloud services. |
+
+## Documentation and Diagrams
+
+| Jira Key | Change | Evidence |
+|---|---|---|
+| LAC-57 | Update documentation and diagrams | DF0, DF1, system flow, general flow, process, sequence, and states diagrams were updated in English. |
+| LAC-58 | Translate requirements and add facial requirements | `Requirements.md` was translated to English and extended through FR-23 and NFR-11. |
+| LAC-74 | Create system architecture diagram | `system_architecture.md` shows the interaction between hardware, software, database, facial recognition, and access control. |
+| LAC-79 | Rebuild traceability in English with Jira keys | The traceability document was updated with Jira keys, current modules, and the latest requirements. |
