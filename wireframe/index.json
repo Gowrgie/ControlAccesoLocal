@@ -1,0 +1,117 @@
+[
+  {
+    "screen": "Presence standby",
+    "file": "01_presence_standby.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Presence detected",
+    "file": "02_presence_detected.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Role selection",
+    "file": "03_role_selection.png",
+    "status": "saved"
+  },
+  {
+    "screen": "General user login",
+    "file": "04_general_user_login.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Technical service login",
+    "file": "05_technical_service_login.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Administrator login",
+    "file": "06_admin_login.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Result – access granted",
+    "file": "07_access_granted_result.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Result – no permission",
+    "file": "08_no_permission_result.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Result – unrecognized",
+    "file": "09_unrecognized_result.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Result – system error",
+    "file": "10_system_error_result.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Administration menu",
+    "file": "11_admin_menu.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Existing user enrollment",
+    "file": "12_existing_user_enrollment.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Enrollment – no active users",
+    "file": "13_enrollment_no_active_users.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Create new user",
+    "file": "14_create_new_user.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Guided capture – starting camera",
+    "file": "15_guided_capture_starting_camera.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Guided capture – sample 1/5",
+    "file": "16_guided_capture_sample_1_5.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Guided capture – sample 2/5",
+    "file": "17_guided_capture_sample_2_5.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Guided capture – sample 3/5",
+    "file": "18_guided_capture_sample_3_5.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Guided capture – sample 4/5",
+    "file": "19_guided_capture_sample_4_5.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Guided capture – sample 5/5",
+    "file": "20_guided_capture_sample_5_5.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Guided capture – registration complete",
+    "file": "21_guided_capture_registration_complete.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Facial recognition – starting camera",
+    "file": "22_facial_recognition_starting_camera.png",
+    "status": "saved"
+  },
+  {
+    "screen": "Facial recognition – preview",
+    "file": "23_facial_recognition_preview.png",
+    "status": "saved"
+  }
+]
