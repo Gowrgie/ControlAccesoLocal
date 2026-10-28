@@ -148,22 +148,41 @@ class ControlAcceso:
         self._inicio_facial_programado = True
         self.root.after(2000, self._iniciar_facial_si_libre)
 
-    def _iniciar_facial_si_libre(self):
-        """Abre la cámara solo si ningún otro método tomó el intento."""
+    def _iniciar_facial_si_libre(self, ignorar_pir=False):
+        """Comprueba la cámara y abre el reconocedor si el intento sigue libre."""
         self._inicio_facial_programado = False
 
         if (
             self._cerrando
             or self._en_resultado
             or self._captura_metodo is not None
-            or not self.pir_activo
+            or (not ignorar_pir and not self.pir_activo)
             or not getattr(self, "puede_facial", False)
         ):
             return
 
         abrir = getattr(self, "iniciar_reconocimiento_facial", None)
         if not callable(abrir):
-            self.puede_facial = False
+            print("[FACIAL] No está disponible el método para abrir el reconocedor.", flush=True)
+            return
+
+        try:
+            from camera import camara_disponible
+            disponible = camara_disponible()
+        except Exception as error:
+            disponible = False
+            mensaje = f"No se pudo comprobar la cámara: {error}"
+        else:
+            mensaje = "La cámara no está disponible. Puedes continuar con otro método."
+
+        if not disponible:
+            print(f"[CAMARA] {mensaje}", flush=True)
+            fallo = getattr(self, "fallo_facial", None)
+
+            if callable(fallo):
+                fallo(mensaje)
+            else:
+                self._captura_metodo = None
             return
 
         self._captura_metodo = "facial"
@@ -177,7 +196,6 @@ class ControlAcceso:
                 fallo(str(error))
             else:
                 self._captura_metodo = None
-                self.puede_facial = False
                 print(f"[FACIAL] No se pudo abrir el reconocedor: {error}", flush=True)
 
     # ============ button capture ============
@@ -215,6 +233,13 @@ class ControlAcceso:
                     print("[IGNORADO] La pantalla está atendiendo este intento.", flush=True)
                 elif self._captura_metodo == "facial":
                     print("[IGNORADO] El reconocimiento facial está atendiendo este intento.", flush=True)
+                elif self._captura_metodo == "alternativa":
+                    self._captura_metodo = "botones"
+                    self._captura_fase = "identificador"
+                    self._captura_id = ""
+                    self._captura_clave = ""
+                    print("[MÉTODO] Botones seleccionados desde la alternativa facial.", flush=True)
+                    self.agregar_boton(PINES_BOTONES[pin], ahora)
                 elif self._captura_metodo is None and not self.pir_activo:
                     print("[IGNORADO] Sin presencia habilitada. Espere la estabilización y acérquese al PIR.", flush=True)
                 else:
@@ -317,6 +342,17 @@ class ControlAcceso:
                     return True
                 
         resultado = validar_acceso_por_rostro(id_usuario)
+
+        if resultado == "no_reconocido":
+            mostrar_alternativas = getattr(self, "mostrar_alternativas_facial", None)
+
+            if callable(mostrar_alternativas):
+                mostrar_alternativas(
+                    "Rostro no reconocido. Usa la interfaz o los botones físicos.",
+                    resultado=resultado,
+                )
+                return True
+
         self.mostrar_resultado(resultado)
         return True
 
@@ -338,3 +374,16 @@ class ControlAcceso:
 
         mostrar_menu(id_usuario)
         return True
+
+    def reintentar_reconocimiento_facial(self):
+        """Reabre el reconocimiento solo si el usuario lo solicita."""
+        if (
+            self._cerrando
+            or self._en_resultado
+            or self._captura_metodo != "alternativa"
+        ):
+            return
+
+        self._captura_metodo = None
+        self._inicio_facial_programado = False
+        self._iniciar_facial_si_libre(ignorar_pir=True)    

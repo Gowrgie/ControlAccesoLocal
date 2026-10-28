@@ -21,7 +21,6 @@ from datetime import datetime
 from access_flow import ControlAcceso
 from access_logic import validar_acceso_por_rol
 from audio import reproducir_mensaje_resultado
-from reconocimiento_facial.reconocer_rostro import abrir_reconocimiento
 from hardware import PIR_PIN
 
 
@@ -169,7 +168,12 @@ class InterfazControlAcceso(ControlAcceso):
         self._pir_after = self.root.after(500, self.leer_pir)
 
     def validar_entrada_space(self, event):
-        if self._captura_metodo in ("botones", "facial", "administracion") or self._en_resultado:
+        if self._captura_metodo in (
+            "botones",
+            "facial",
+            "alternativa",
+            "administracion",
+        ) or self._en_resultado:
             return "break"
 
         self.actualizar_presencia(time.monotonic())
@@ -190,6 +194,7 @@ class InterfazControlAcceso(ControlAcceso):
             callback_identificacion=self.procesar_identificacion_facial,
             callback_cancelacion=self.cancelar_facial,
             callback_error=self.fallo_facial,
+            callback_alternativa=self.usar_otro_metodo,
         )
 
     def cerrar_reconocimiento_facial(self):
@@ -777,20 +782,15 @@ class InterfazControlAcceso(ControlAcceso):
         self.mostrar_standby()
 
     def fallo_facial(self, mensaje):
-        """Informa el error y deja disponibles los métodos alternativos."""
+        """Ofrece métodos alternativos después de un fallo facial."""
         if self._cerrando:
             return
 
         print(f"[FACIAL] Error en el reconocedor: {mensaje}", flush=True)
-        self.puede_facial = False
-        self.mostrar_standby()
-
-        if messagebox is not None:
-            messagebox.showerror(
-                "Reconocimiento facial",
-                mensaje,
-                parent=self.root,
-            )
+        self.ventana_facial = None
+        self.mostrar_alternativas_facial(
+            f"No se pudo completar el reconocimiento: {mensaje}"
+        )
 
     def mostrar_menu_administrador(self, id_usuario=None):
         """Muestra la confirmación existente y después abre el menú."""
@@ -805,3 +805,90 @@ class InterfazControlAcceso(ControlAcceso):
             accionar=True,
             al_finalizar=self.mostrar_menu_registro_admin,
         )
+    def usar_otro_metodo(self):
+        """Deja elegir la interfaz o comenzar a ingresar datos con botones."""
+        if self._cerrando:
+            return
+
+        self.ventana_facial = None
+        self.mostrar_alternativas_facial(
+            "Puedes continuar con la interfaz gráfica o con los botones físicos."
+        )
+
+
+    def mostrar_alternativas_facial(self, mensaje, resultado=None):
+        """Muestra opciones y conserva el intento PIR actual."""
+        if self._cerrando:
+            return
+
+        self._captura_metodo = "alternativa"
+        self._en_resultado = False
+        self.ventana_facial = None
+
+        # El rostro desconocido sí produce una denegación y un intento facial.
+        # Los errores de cámara y el cambio de método no registran un intento.
+        if resultado is not None:
+            self.hardware.respuesta_hardware(resultado)
+            reproducir_mensaje_resultado(resultado)
+
+        self.limpiar_frame()
+
+        frame = ttk.Frame(self.main_frame, padding=24)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(
+            frame,
+            text="Continúa con otro método",
+            font=("Helvetica", 22, "bold"),
+        ).pack(pady=(60, 20))
+
+        ttk.Label(
+            frame,
+            text=mensaje,
+            font=("Helvetica", 14),
+            wraplength=650,
+            justify=tk.CENTER,
+        ).pack(pady=15)
+
+        ttk.Button(
+            frame,
+            text="Usar interfaz gráfica",
+            command=self.seleccionar_interfaz_alternativa,
+        ).pack(pady=12)
+
+        ttk.Button(
+            frame,
+            text="Volver a detectar rostro",
+            command=self.reintentar_reconocimiento_facial,
+        ).pack(pady=12)        
+
+        ttk.Label(
+            frame,
+            text="También puedes comenzar a ingresar tu identificador con los botones físicos.",
+            font=("Helvetica", 12),
+            wraplength=650,
+            justify=tk.CENTER,
+        ).pack(pady=15)
+
+        ttk.Button(
+            frame,
+            text="Volver a la pantalla de espera",
+            command=self.volver_a_espera_desde_alternativa,
+        ).pack(pady=12)        
+
+
+    def seleccionar_interfaz_alternativa(self):
+        """Abre el login gráfico sin exigir que se active otra vez el PIR."""
+        if self._captura_metodo != "alternativa":
+            return
+
+        self._captura_metodo = "interfaz_grafica"
+        self.mostrar_seleccion_rol()
+
+    def volver_a_espera_desde_alternativa(self):
+        try:
+            self.hardware.servo_reposo()
+        except Exception as error:
+            print("[HARDWARE] No se pudo regresar el servo a reposo:", error)
+
+        self.mostrar_standby()
