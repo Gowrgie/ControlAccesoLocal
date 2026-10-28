@@ -28,8 +28,8 @@ Local access control system for a Raspberry Pi. Users identify themselves with t
 | Green and red LEDs | Access result | GPIO 23 and 24 |
 | Buzzer | Short audio signals | GPIO 25 |
 | Servo | Access point | GPIO 26 |
-| Camera | Facial recognition | [CONFIRM: USB camera, device /dev/video0] |
-| Speaker | Audio feedback | [CONFIRM: connected to the 3.5 mm audio output] |
+| Camera | Facial recognition | USB camera |
+| Speaker | Audio feedback | Bluetooth |
 | Monitor | Graphical interface | Connected to the Raspberry Pi |
 
 See `documentacion/hardware.md` for the full wiring and assembly guide.
