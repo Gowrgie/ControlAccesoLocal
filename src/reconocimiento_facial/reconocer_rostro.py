@@ -140,11 +140,13 @@ class VentanaReconocimiento:
         callback_identificacion=None,
         callback_cancelacion=None,
         callback_error=None,
+        callback_alternativa=None,
     ):
         self.parent = parent
         self.callback_identificacion = callback_identificacion
         self.callback_cancelacion = callback_cancelacion
         self.callback_error = callback_error
+        self.callback_alternativa = callback_alternativa
 
         self.ventana = tk.Toplevel(parent)
         self.ventana.title("Reconocimiento facial")
@@ -252,11 +254,20 @@ class VentanaReconocimiento:
         )
         self.video_label.pack(fill="both", expand=True, pady=(0, 10))
 
+        acciones = ttk.Frame(contenedor)
+        acciones.pack(pady=(0, 2))
+
         ttk.Button(
-            contenedor,
-            text="Cerrar",
+            acciones,
+            text="Usar otro método",
+            command=self.usar_otro_metodo,
+        ).pack(side="left", padx=8, ipadx=12, ipady=5)
+
+        ttk.Button(
+            acciones,
+            text="Cancelar",
             command=self.cerrar,
-        ).pack(pady=(0, 2), ipadx=18, ipady=5)
+        ).pack(side="left", padx=8, ipadx=12, ipady=5)
 
     def mostrar_estado(self, titulo, detalle, tipo):
         colores = {
@@ -371,7 +382,7 @@ class VentanaReconocimiento:
         if self.terminado or self.resultado_final:
             return
         if self.contador_cuadros > 600:  # ~20 s sin decisión: cancela el intento
-            self.cerrar()
+            self.terminar(error="Se agotó el tiempo para reconocer el rostro.")
             return
         imagen = self.camara.read_frame() if self.camara is not None else None
 
@@ -418,6 +429,18 @@ class VentanaReconocimiento:
         if not self.terminado and not self.resultado_final:
             self.after_id = self.ventana.after(15, self.actualizar_video)
 
+    def usar_otro_metodo(self):
+        """Cierra la cámara y entrega el control a las opciones alternativas."""
+        if self.terminado:
+            return
+
+        # Impide que cerrar() notifique también una cancelación.
+        self.resultado_final = True
+        self.cerrar()
+
+        if self.callback_alternativa is not None:
+            self.callback_alternativa()
+
     def cerrar(self):
         if self.terminado:
             return
@@ -461,6 +484,7 @@ def abrir_reconocimiento(
     callback_identificacion=None,
     callback_cancelacion=None,
     callback_error=None,
+    callback_alternativa=None,
 ):
     """Abre el reconocimiento como ventana secundaria de la aplicación."""
     return VentanaReconocimiento(
@@ -468,4 +492,5 @@ def abrir_reconocimiento(
         callback_identificacion=callback_identificacion,
         callback_cancelacion=callback_cancelacion,
         callback_error=callback_error,
+        callback_alternativa=callback_alternativa,
     )
