@@ -48,6 +48,20 @@
 
 **FR-23:** The system shall correctly reject access when an unregistered or unknown face is detected.
 
+**FR-24:** The app shall let a registered user log in with their identifier and passcode.
+
+**FR-25:** The app shall only allow a request when the PIR sensor detects presence.
+
+**FR-26:** The app shall send the request to the Raspberry Pi and show whether access was authorized or denied, using the same four-result model defined in FR-13 (authorized, authorized without permission, unrecognized, or system error).
+
+**FR-27:** The app and the Raspberry Pi shall return to standby after each attempt.
+
+**FR-28:** The app shall tell the user when a request failed for a technical reason, not because of a denied access.
+
+**FR-29:** The mobile app shall use the same validation logic as the other access methods, through an API service reachable only from the local network, without its own separate rules.
+
+**FR-30:** Buttons, GUI, and facial recognition shall keep working while the mobile method is active.
+
 ## Non-Functional Requirements
 
 **NFR-01.** The system shall prevent registering false physical inputs due to button bounce (debounce) during both identifier and passcode capture.
@@ -71,3 +85,9 @@
 **NFR-10.** The system shall process one access operation at a time, preventing simultaneous validation of a graphical interface interaction and a button interaction on the same opening mechanism.
 
 **NFR-11:** The main processing, database queries, and access decision logic must function entirely locally, even if a pre-trained model is used for the face recognition.
+
+**NFR-12:** Passcodes shall be stored hashed, and the API shall only be reachable over an encrypted, authenticated connection.
+
+**NFR-13:** The database account used by the mobile method shall not be able to create or modify users.
+
+**NFR-14:** The mobile API service shall respond to an access request within no more than 2 seconds, including network round trip, and shall not be exposed outside the local network.
