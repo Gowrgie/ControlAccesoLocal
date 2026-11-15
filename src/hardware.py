@@ -44,6 +44,10 @@ SERVO_RECHAZO = 1000
 SERVO_REPOSO = 1500
 SERVO_APERTURA = 2000
 
+# LAC-85: when False, a rejection (sin_permiso / no_reconocido) does not move the servo.
+# Set it to True to restore the old behavior: the servo goes to the rejection position.
+MOVER_SERVO_EN_RECHAZO = False
+
 TIEMPO_ESTABILIZACION_PIR = 30   # seconds before the PIR is trusted
 VENTANA_PRESENCIA = 4.0          # seconds that presence is kept after the PIR drops
 
@@ -222,8 +226,9 @@ class ControlHardware:
         else:
             pin = LED_ROJO
             if resultado in ("sin_permiso", "no_reconocido"):
-                # Same rejection position as the original physical program: 0 degrees.
-                lgpio.tx_servo(self._servo_chip, SERVO, SERVO_RECHAZO)
+                if MOVER_SERVO_EN_RECHAZO:
+                    # Rejection position of the original physical program: 0 degrees.
+                    lgpio.tx_servo(self._servo_chip, SERVO, SERVO_RECHAZO)
             else:
                 lgpio.tx_servo(self._servo_chip, SERVO, SERVO_REPOSO)
         GPIO.output(pin, GPIO.HIGH)
