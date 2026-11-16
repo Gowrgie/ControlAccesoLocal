@@ -236,25 +236,27 @@ def registrar_intento_facial(id_usuario, resultado):
     registrar_intento(id_usuario, "facial", resultado)
 
 def validar_acceso_facial(id_usuario):
-    """Decision for a face. id_usuario is the identified user, or None for an unknown face.
-    Permissions are read from the user's role, like in the other methods."""
-    try:
-        if id_usuario is None:
-            registrar_intento_facial(None, "no_reconocido")
-            return "no_reconocido"
+    """Valida los permisos del usuario identificado por rostro."""
+    return validar_acceso_por_usuario(id_usuario, "facial")
 
-        datos = obtener_permisos_por_usuario(id_usuario)
+
+def validar_acceso_por_usuario(id_usuario, mecanismo):
+    """Valida los permisos de un usuario identificado y registra el intento."""
+    try:
+        datos = None
+        if id_usuario is not None:
+            datos = obtener_permisos_por_usuario(id_usuario)
 
         if datos is None:
-            registrar_intento_facial(None, "no_reconocido")
-            return "no_reconocido"
+            id_usuario = None
+            resultado = "no_reconocido"
+        elif not datos["activo"] or not datos["permiso_apertura"]:
+            resultado = "sin_permiso"
+        else:
+            resultado = "autorizado"
 
-        if not datos["activo"] or not datos["permiso_apertura"]:
-            registrar_intento_facial(id_usuario, "sin_permiso")
-            return "sin_permiso"
-
-        registrar_intento_facial(id_usuario, "autorizado")
-        return "autorizado"
+        registrar_intento(id_usuario, mecanismo, resultado)
+        return resultado
 
     except mysql.connector.Error as error:
         print("Error al consultar la base de datos:", error)
