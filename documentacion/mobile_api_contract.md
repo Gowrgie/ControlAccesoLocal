@@ -5,6 +5,11 @@ the existing validation logic (`access_logic.py`) and authentication module
 (`autenticacion.py`) — it does not implement its own authorization rules.
 Not exposed outside the local network (NFR-14).
 
+## Security
+
+All endpoints MUST be served over HTTPS (TLS 1.2+). Plaintext HTTP is not
+permitted.
+
 ## OpenAPI contract
 
 ```yaml
@@ -16,9 +21,10 @@ info:
     Local HTTP service exposed by the Raspberry Pi. Reuses the existing
     access_logic.py and autenticacion.py — it implements no authorization
     rules of its own. Not reachable outside the local network (NFR-14).
+    All communication MUST occur over HTTPS.
 
 servers:
-  - url: http://raspberrypi.local:8000
+  - url: https://raspberrypi.local:8000
 
 components:
   securitySchemes:
@@ -58,6 +64,9 @@ components:
         request_id:
           type: string
           format: uuid
+          description: >
+            Client-generated idempotency key. Resubmitting an existing
+            request_id MUST NOT trigger a new physical access attempt.
 
     AccessRequestStatus:
       type: object
@@ -122,6 +131,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Presence'
+        '401':
+          description: Session token is missing, invalid, or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: PIR sensor inactive or unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /access-requests:
     post:
@@ -141,6 +162,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccessRequestStatus'
+        '401':
+          description: Session token is missing, invalid, or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: request_id already exists; returns the existing request instead of creating a new one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessRequestStatus'
+        '503':
+          description: System failure (e.g. dispatcher or access control hardware unreachable)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /access-requests/{request_id}:
     get:
@@ -161,6 +200,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccessRequestStatus'
+        '401':
+          description: Session token is missing, invalid, or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: This request_id belongs to a different session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: request_id not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 ```
 
 ## State machine
@@ -173,6 +230,22 @@ detected to the moment a request is resolved:
 - **busy** — the dispatcher is already handling a different request.
 - **complete** — a result exists (any of the four outcomes); terminal state.
 - **expired** — timed out before completing; terminal state.
+
+**Concurrent requests:** the dispatcher processes one request at a time. A
+new `POST /access-requests` received while another request is `pending` or
+`busy` is still accepted (`202`) and queued — its state is set to `busy`
+immediately rather than being rejected. The client keeps polling
+`/access-requests/{request_id}` until `complete` or `expired`.
+
+**Duplicate request IDs:** `request_id` is a client-generated idempotency
+key (UUID). If `POST /access-requests` is called again with a `request_id`
+that already exists, the server does not create a new request or trigger a
+new physical opening — it responds `409` with the existing request's
+current state.
+
+**Ownership:** `GET /access-requests/{request_id}` only returns data to the
+session that created that request. A valid token belonging to a different
+session gets `403`.
 
 ```mermaid
 stateDiagram-v2
