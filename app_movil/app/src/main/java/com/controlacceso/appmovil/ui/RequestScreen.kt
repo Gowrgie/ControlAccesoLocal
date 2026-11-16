@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun RequestScreen(
     presenceDetected: Boolean = false,
+    mensajePresencia: String? = null,
     onRequestAccess: () -> Unit
 ) {
     Column(
@@ -17,7 +18,13 @@ fun RequestScreen(
     ) {
         Text(text = "Solicitud de acceso", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = if (presenceDetected) "Presencia detectada" else "Esperando presencia (PIR)")
+        Text(
+            text = mensajePresencia ?: if (presenceDetected) {
+                "Presencia detectada"
+            } else {
+                "Esperando presencia (PIR)"
+            }
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = onRequestAccess,

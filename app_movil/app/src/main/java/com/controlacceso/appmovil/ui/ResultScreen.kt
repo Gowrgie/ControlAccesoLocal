@@ -1,6 +1,5 @@
 package com.controlacceso.appmovil.ui
 
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -10,17 +9,28 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ResultScreen(
     result: String = "pending",
+    mensajeEstado: String? = null,
+    procesando: Boolean = false,
+    onConsultarEstado: (() -> Unit)? = null,
     onReturnToStandby: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "Resultado", style = MaterialTheme.typography.headlineSmall)
+        Text("Resultado", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = mensajePara(result))
+        Text(mensajeEstado ?: mensajePara(result))
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onReturnToStandby, modifier = Modifier.fillMaxWidth()) {
+
+        if (onConsultarEstado != null) {
+            Button(onClick = onConsultarEstado, enabled = !procesando) {
+                Text("Consultar estado")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Button(onClick = onReturnToStandby, enabled = !procesando) {
             Text("Volver al inicio")
         }
     }
