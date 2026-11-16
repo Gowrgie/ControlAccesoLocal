@@ -1,27 +1,20 @@
-# Mobile API Contract
-
-Local HTTP service exposed by the Raspberry Pi to the Android app. It reuses
-the existing validation logic (`access_logic.py`) and authentication module
-(`autenticacion.py`) — it does not implement its own authorization rules.
-Not exposed outside the local network (NFR-14).
-
-## Security
-
-All endpoints MUST be served over HTTPS (TLS 1.2+). Plaintext HTTP is not
-permitted.
-
-## OpenAPI contract
-
-```yaml
+Mobile API Contract
+The Raspberry Pi exposes a local HTTPS service for the Android app. It reuses
+the existing validation logic (access_logic.py) and authentication module
+(autenticacion.py). The service is reachable only from the local network
+(NFR-14).
+Security
+All endpoints use HTTPS with TLS 1.2 or later. Protected operations use
+Authorization: Bearer <token>. See [Mobile API security](mobile_security.md)
+for certificate trust, session handling, and rate limits.
+OpenAPI contract
 openapi: 3.0.3
 info:
   title: ControlAccesoLocal Mobile API
   version: "1.0"
   description: >
-    Local HTTP service exposed by the Raspberry Pi. Reuses the existing
-    access_logic.py and autenticacion.py — it implements no authorization
-    rules of its own. Not reachable outside the local network (NFR-14).
-    All communication MUST occur over HTTPS.
+    Local HTTPS service for the Android app. The controller owns the hardware
+    and processes access requests through its dispatcher.
 
 servers:
   - url: https://raspberrypi.local:8000
@@ -41,9 +34,12 @@ components:
           type: string
         clave:
           type: string
+          format: password
+          writeOnly: true
 
     Session:
       type: object
+      required: [token, expira]
       properties:
         token:
           type: string
@@ -53,6 +49,7 @@ components:
 
     Presence:
       type: object
+      required: [present]
       properties:
         present:
           type: boolean
@@ -65,28 +62,70 @@ components:
           type: string
           format: uuid
           description: >
-            Client-generated idempotency key. Resubmitting an existing
-            request_id MUST NOT trigger a new physical access attempt.
+            Client-generated idempotency key. The controller retains request IDs
+            in memory for the lifetime of the process.
 
     AccessRequestStatus:
       type: object
+      required: [request_id, state, result]
       properties:
         request_id:
           type: string
           format: uuid
         state:
           type: string
-          enum: [present, pending, busy, complete, expired]
+          enum: [pending, busy, complete, expired]
         result:
           type: string
-          enum: [autorizado, sin_permiso, no_reconocido, error_sistema]
+          enum: [autorizado, sin_permiso, no_reconocido, error_sistema, null]
           nullable: true
 
     Error:
       type: object
+      required: [error]
       properties:
         error:
           type: string
+
+  responses:
+    UnauthorizedSession:
+      description: Session token is missing, invalid, or expired
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+            example: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InvalidRequest:
+      description: Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    TooManyRequests:
+      description: The request limit has been reached
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    AuthenticationUnavailable:
+      description: Authentication service is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
 
 paths:
   /sessions:
@@ -100,24 +139,43 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Session created
+          description: Session created, with the expiration timestamp in UTC
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Session'
         '401':
-          description: Invalid credentials (same response for every failure case)
+          description: Invalid credentials
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/AuthenticationUnavailable'
     delete:
       summary: Log out
       security:
         - bearerAuth: []
       responses:
         '204':
-          description: Session closed (always, even if it did not exist)
+          description: Session closed or already absent
+        '401':
+          description: A Bearer token is required
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthenticationUnavailable'
 
   /presence:
     get:
@@ -126,19 +184,17 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Presence state
+          description: PIR presence state
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Presence'
         '401':
-          description: Session token is missing, invalid, or expired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/UnauthorizedSession'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '503':
-          description: PIR sensor inactive or unreachable
+          description: PIR presence state or authentication service is unavailable
           content:
             application/json:
               schema:
@@ -157,25 +213,31 @@ paths:
               $ref: '#/components/schemas/AccessRequestCreate'
       responses:
         '202':
-          description: Request accepted, now pending
+          description: Request accepted in pending or busy
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccessRequestStatus'
         '401':
-          description: Session token is missing, invalid, or expired
+          $ref: '#/components/responses/UnauthorizedSession'
+        '403':
+          description: PIR presence is absent or the UUID belongs to a different session
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: request_id already exists; returns the existing request instead of creating a new one
+          description: UUID already submitted by this session, with the existing status
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccessRequestStatus'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '503':
-          description: System failure (e.g. dispatcher or access control hardware unreachable)
+          description: Controller, PIR presence state, or authentication service is unavailable
           content:
             application/json:
               schema:
@@ -183,7 +245,7 @@ paths:
 
   /access-requests/{request_id}:
     get:
-      summary: Poll the state/result of an access request
+      summary: Poll the state and result of an access request
       security:
         - bearerAuth: []
       parameters:
@@ -195,79 +257,102 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Current state, with result once complete
+          description: Current state, with the result once complete
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccessRequestStatus'
         '401':
-          description: Session token is missing, invalid, or expired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/UnauthorizedSession'
         '403':
-          description: This request_id belongs to a different session
+          description: The UUID belongs to a different session
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: request_id not found
+          description: Request UUID not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-```
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          description: Controller or authentication service is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+State machine
+- present is the app state after GET /presence reports presence, before
+  the app submits a request.
+- pending means the request is next in the queue or is already running.
+- busy means another operation has the turn or another request is ahead
+  in the queue.
+- complete means the operation ended and its result is available.
+- expired means the queue deadline passed before execution started.
+A new request requires active PIR presence. When presence is active, the
+controller can accept and queue a request while another operation has the
+turn. The controller processes one operation at a time and checks presence
+again before taking the next request.
 
-## State machine
-
-Five states cover the whole interaction, from the moment presence is
-detected to the moment a request is resolved:
-
-- **present** — the PIR reports presence and no request has been sent yet.
-- **pending** — a request was submitted and is waiting on the dispatcher.
-- **busy** — the dispatcher is already handling a different request.
-- **complete** — a result exists (any of the four outcomes); terminal state.
-- **expired** — timed out before completing; terminal state.
-
-**Concurrent requests:** the dispatcher processes one request at a time. A
-new `POST /access-requests` received while another request is `pending` or
-`busy` is still accepted (`202`) and queued — its state is set to `busy`
-immediately rather than being rejected. The client keeps polling
-`/access-requests/{request_id}` until `complete` or `expired`.
-
-**Duplicate request IDs:** `request_id` is a client-generated idempotency
-key (UUID). If `POST /access-requests` is called again with a `request_id`
-that already exists, the server does not create a new request or trigger a
-new physical opening — it responds `409` with the existing request's
-current state.
-
-**Ownership:** `GET /access-requests/{request_id}` only returns data to the
-session that created that request. A valid token belonging to a different
-session gets `403`.
-
+If the owning session repeats a UUID, POST /access-requests returns 409
+with the current status and keeps the original queue entry. The owning
+session can poll the request until it reaches complete or expired. Use
+the same UUID when retrying a submission. The dispatcher retains request
+IDs and results in memory for the lifetime of the controller process.
 ```mermaid
 stateDiagram-v2
     [*] --> present: PIR reports presence
-    present --> pending: user submits a request
-    present --> expired: presence lost / idle timeout
-    pending --> busy: dispatcher occupied by another request
-    pending --> complete: result ready
-    pending --> expired: no response within the request timeout
-    busy --> pending: dispatcher freed up, request re-queued
-    busy --> expired: waited too long while busy
-    complete --> [*]: app returns to standby (LAC-86)
-    expired --> [*]: app shows technical failure, returns to standby (LAC-86, LAC-87)
+    present --> [*]: presence lost before submission
+    present --> pending: request accepted with controller available
+    present --> busy: request accepted while another operation has the turn
+    pending --> busy: another operation takes the controller
+    busy --> pending: controller available and request is next
+    pending --> complete: operation ended and result is available
+    pending --> expired: queue deadline reached before execution
+    busy --> expired: queue deadline reached before execution
+    complete --> [*]: app returns to standby
+    expired --> [*]: app shows timeout and returns to standby
 ```
+Timing
+- Session lifetime is 10 minutes (DURACION_SESION_MINUTOS in
+  autenticacion.py).
+- Queue timeout is 10 seconds from acceptance. Once the controller takes
+  a request, the request keeps its turn until the operation ends and the
+  controller returns to standby.
+- Network response time has a target of under 2 seconds per HTTP round
+  trip, per NFR-14.
+Running the mobile API on the Raspberry Pi
+From the repository root, use the Python environment that already runs
+the Raspberry Pi controller.
+python3 -m pip install -r requirements-mobile-api.txt
+Set API_HOST to the Raspberry Pi's LAN IP address. Set API_CERT and
+API_KEY to the server certificate and private key paths. Keep the private
+key outside the repository.
+python3 src/Main_code.py --solo-botones \
+  --api-host "$API_HOST" \
+  --api-cert "$API_CERT" \
+  --api-key "$API_KEY"
+Omit --solo-botones to use the graphical controller. In either mode, the API
+listens on HTTPS port 8000 and shares the active controller's dispatcher.
+Android connects to https://raspberrypi.local:8000/ using the certificate
+trust configuration described in [Mobile API security](mobile_security.md).
+Endpoint responses
+Endpoint	Success	Other responses
+POST /sessions	200 with token and expira	401, 422, 429, 503
+DELETE /sessions	204 with no body, including on repeat requests	401, 503
+GET /presence	200 with present: true or present: false	401, 429, 503
+POST /access-requests	202 with the queued request status	401, 403, 409, 422, 429, 503
+GET /access-requests/{request_id}	200 with the request status and result	401, 403, 404, 422, 429, 503
 
-## Timing
 
-- **Session duration:** 10 minutes (`DURACION_SESION_MINUTOS` in
-  `autenticacion.py` — already fixed, this contract does not change it).
-- **Access-request timeout:** 10 seconds from `pending`/`busy` to `expired`.
-  Chosen to comfortably cover the dispatcher queue plus the 3-second
-  physical opening (FR-17), while staying short enough that a user waiting
-  in front of the door doesn't wonder if the app froze.
-- **Network response time:** under 2 seconds per call, per NFR-14 — this is
-  the HTTP round trip itself, not the full access-request lifecycle above.
+The API returns a generic error message for malformed requests (422).
+Rate-limited responses (429) include Retry-After in seconds.
+Verification
+The 20 API tests passed on macOS. A separate localhost test verified HTTPS
+with a temporary certificate and a simulated controller. Verification on
+the Raspberry Pi with its certificate, PIR and servo is pending.

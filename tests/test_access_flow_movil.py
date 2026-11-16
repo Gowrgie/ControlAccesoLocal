@@ -12,6 +12,9 @@ class PruebaFlujoMovil(unittest.TestCase):
             control = ControlAcceso()
             control.root = Mock()
             control.preparar_estado()
+            control.hardware.pir.presencia_para_api.side_effect = (
+                lambda ahora: control.hardware.pir.activo
+            )
             control.hardware.botones.detectar_pulsacion.return_value = None
 
             def mostrar_resultado(resultado, accionar=True):

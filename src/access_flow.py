@@ -134,6 +134,13 @@ class ControlAcceso:
         self.hardware.pir.actualizar(ahora, ocupado, self.anunciar_sistema_listo)
         self.intentar_inicio_facial()
 
+    def consultar_presencia_movil(self):
+        """Consulta el estado móvil publicado por el controlador."""
+        if self._cerrando:
+            return None
+
+        return self.hardware.pir.presencia_para_api(time.monotonic())
+
     def intentar_inicio_facial(self):
         """Espera un momento para permitir que se elija pantalla o botones."""
         if (
@@ -218,7 +225,7 @@ class ControlAcceso:
         controlador_ocupado = (
             self._en_resultado
             or self._captura_metodo is not None
-            or not self.pir_activo
+            or self.consultar_presencia_movil() is not True
         )
         solicitud = self.despachador.tomar(
             controlador_ocupado=controlador_ocupado
