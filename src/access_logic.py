@@ -33,6 +33,11 @@ try:
 except ImportError:
     obtener_permisos_por_usuario = None
 
+try:
+    from scripts_db.db_conexion import validar_acceso_por_usuario
+except ImportError:
+    validar_acceso_por_usuario = None
+
 def buscar_administrador_por_credenciales(identificador, clave):
     """Devuelve el usuario si está activo y tiene permiso de administración."""
     if buscar_usuario is None:
@@ -147,4 +152,15 @@ def validar_acceso_por_rostro(id_usuario):
                 if validar_acceso_facial is not None else "error_sistema")
     except Exception as error:
         print("Error al validar rostro:", error)
+        return "error_sistema"
+
+def validar_acceso_movil(id_usuario):
+    """Valida el permiso de apertura del usuario autenticado en la app."""
+    if validar_acceso_por_usuario is None:
+        return "error_sistema"
+
+    try:
+        return validar_acceso_por_usuario(id_usuario, "app_movil")
+    except Exception as error:
+        print("Error al validar acceso móvil:", error, flush=True)
         return "error_sistema"
