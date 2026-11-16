@@ -63,12 +63,14 @@ class SensorPIR:
         self._inicio = time.monotonic()
         self._armado = False
         self._inicio_listo = False
+        self._presencia_movil_hasta = 0.0
 
     def reiniciar(self):
         """Back to waiting: the sensor must be seen at rest again."""
         self._armado = False
         self._presencia_hasta = 0.0
         self.activo = False
+        self._presencia_movil_hasta = 0.0
 
     def actualizar(self, ahora, ocupado, al_estar_listo):
         """ahora: time.monotonic() value. ocupado: True while a capture or a
@@ -78,6 +80,8 @@ class SensorPIR:
         if presencia != self._diagnostico:
             print("[PIR]", "PRESENCIA (HIGH)" if presencia else "REPOSO (LOW)", flush=True)
             self._diagnostico = presencia
+        if self._inicio_listo and self._armado and presencia:
+            self._presencia_movil_hasta = ahora + VENTANA_PRESENCIA
         if ocupado:
             # A capture already started does not depend on the PIR staying active.
             return
@@ -100,6 +104,13 @@ class SensorPIR:
             print("[PRESENCIA]", "Habilitada para pantalla y botones" if activo
                   else "Ventana de 4 segundos terminada", flush=True)
         self.activo = activo
+
+    def presencia_para_api(self, ahora):
+        """Devuelve el estado móvil a partir de la última lectura del controlador."""
+        if not self._inicio_listo:
+            return None
+
+        return ahora < self._presencia_movil_hasta
 
 
 class LectorBotones:

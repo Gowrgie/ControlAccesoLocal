@@ -24,8 +24,10 @@ from access_logic import (
     buscar_administrador_por_credenciales,
     obtener_administrador_activo,
     registrar_autenticacion_administrador,
+    validar_acceso_movil,
 )
 from hardware import ControlHardware, PINES_BOTONES
+from access_dispatcher import DespachadorAcceso
 
 
 class ControlAcceso:
@@ -33,6 +35,8 @@ class ControlAcceso:
     def preparar_estado(self):
         # Used with a window and in physical mode: both share the same rules
         # for capture, presence, exclusion and cleanup.
+        self.despachador = DespachadorAcceso()
+        self._resultado_movil = None
         self.hardware = ControlHardware(self.programar_accion)
         self._cerrando = False
         # None: both methods available. A chosen method reserves the attempt.
@@ -111,6 +115,12 @@ class ControlAcceso:
         # Common part of every return to the waiting state.
         if self._en_resultado:
             self.hardware.servo_reposo()
+
+        if self._resultado_movil is not None:
+            request_id, resultado = self._resultado_movil
+            self.despachador.completar(request_id, resultado)
+            self._resultado_movil = None
+
         self._en_resultado = False
         self._captura_metodo = None
         self._captura_id = ""
@@ -123,6 +133,13 @@ class ControlAcceso:
         ocupado = self._en_resultado or self._captura_metodo is not None
         self.hardware.pir.actualizar(ahora, ocupado, self.anunciar_sistema_listo)
         self.intentar_inicio_facial()
+
+    def consultar_presencia_movil(self):
+        """Consulta el estado móvil publicado por el controlador."""
+        if self._cerrando:
+            return None
+
+        return self.hardware.pir.presencia_para_api(time.monotonic())
 
     def intentar_inicio_facial(self):
         """Espera un momento para permitir que se elija pantalla o botones."""
@@ -204,6 +221,24 @@ class ControlAcceso:
         self.hardware.senal_captura_cancelada()
         self.mostrar_standby()
 
+    def procesar_solicitud_movil(self):
+        controlador_ocupado = (
+            self._en_resultado
+            or self._captura_metodo is not None
+            or self.consultar_presencia_movil() is not True
+        )
+        solicitud = self.despachador.tomar(
+            controlador_ocupado=controlador_ocupado
+        )
+        if solicitud is None:
+            return
+
+        self._captura_metodo = "movil"
+        self.identificador = ""
+        resultado = validar_acceso_movil(solicitud.usuario_id)
+        self._resultado_movil = (solicitud.request_id, resultado)
+        self.mostrar_resultado(resultado, accionar=(resultado == "autorizado"))
+
     def leer_botones(self):
         if self._cerrando:
             return
@@ -249,6 +284,7 @@ class ControlAcceso:
                         self._captura_id = self._captura_clave = ""
                         print("[MÉTODO] Botones. Capture 4 dígitos de identificador.", flush=True)
                     self.agregar_boton(PINES_BOTONES[pin], ahora)
+            self.procesar_solicitud_movil()
         except Exception as error:
             print("Error en hardware:", error)
             self.notificar_error_hardware(error)
