@@ -271,6 +271,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                             503 -> {
                                 resultado = "error_sistema"
                                 mensaje = "El controlador no está disponible. Intenta otro método de acceso."
+                                puedeConsultar = true
                                 return@LaunchedEffect
                             }
 
