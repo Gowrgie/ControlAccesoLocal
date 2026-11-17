@@ -68,7 +68,7 @@ classDiagram
     AppNavigation --> ResultScreen : access result
     %% SCREEN DEPENDENCIES
     IdentificationScreen ..> ApiClient : login
-    RequestScreen ..> ApiClient : presence and access
+    AppNavigation ..> ApiClient : presence, access request, status, logout
     AppNavigation ..> ApiClient : session and status
     %% API RELATIONSHIPS
     ApiClient "1" --> "1" ApiService : provides
