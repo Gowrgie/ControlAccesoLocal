@@ -52,8 +52,8 @@ class InterfazControlAcceso(ControlAcceso):
         self.rol_seleccionado = None
         self.identificador = ""
         self.contrasena = ""
-        self.timeout_pir = 30  # seconds of inactivity
-        self.ultimo_movimiento = time.time()
+        self.timeout_pir = 30  # seconds to choose an alternate method
+        self._alternativas_hasta = 0.0
 
         # System colors
         self.COLOR_PRIMARY = "#1a5490"
@@ -143,6 +143,14 @@ class InterfazControlAcceso(ControlAcceso):
 
         # Start reading the PIR sensor
         self.leer_pir()
+
+    def actualizar_presencia(self, ahora):
+        super().actualizar_presencia(ahora)
+        if self._captura_metodo == "alternativa" and (
+            ahora >= self._alternativas_hasta
+            or self.hardware.pir.presencia_para_api(ahora) is not True
+        ):
+            self.volver_a_espera_desde_alternativa()
 
     def leer_pir(self):
         """Updates the screen using the same retained presence as the buttons."""
@@ -822,6 +830,7 @@ class InterfazControlAcceso(ControlAcceso):
             return
 
         self._captura_metodo = "alternativa"
+        self._alternativas_hasta = time.monotonic() + self.timeout_pir
         self._en_resultado = False
         self.ventana_facial = None
 
