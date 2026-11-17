@@ -5,6 +5,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 
 @Composable
 fun ResultScreen(
@@ -14,6 +16,15 @@ fun ResultScreen(
     onConsultarEstado: (() -> Unit)? = null,
     onReturnToStandby: () -> Unit
 ) {
+    // LAC-86: con un resultado definitivo (no está procesando, y no se le está
+    // ofreciendo "Consultar estado"), regresa solo al inicio tras unos segundos.
+    LaunchedEffect(procesando, onConsultarEstado) {
+        if (!procesando && onConsultarEstado == null) {
+            delay(6_000L)
+            onReturnToStandby()
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center
