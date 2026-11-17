@@ -1,5 +1,6 @@
 import sys
 import unittest
+from time import monotonic
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -34,9 +35,18 @@ class PruebaFlujoMovil(unittest.TestCase):
                 validar.assert_not_called()
 
                 control.hardware.pir.activo = True
-                control._captura_metodo = "botones"
-                control.leer_botones()
-                validar.assert_not_called()
+                for metodo in ("botones", "interfaz_grafica", "facial"):
+                    with self.subTest(metodo=metodo):
+                        control._captura_metodo = metodo
+                        control._ultima_pulsacion = monotonic()
+                        control.leer_botones()
+
+                        self.assertFalse(control._cerrando)
+                        validar.assert_not_called()
+                        control.hardware.respuesta_hardware.assert_not_called()
+
+                        estado = control.despachador.consultar(request_id, "sesion-1")
+                        self.assertEqual(estado["state"], "busy")
 
                 control.reiniciar_estado_espera()
                 control.hardware.pir.activo = True
