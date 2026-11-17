@@ -24,6 +24,7 @@ import android.util.Log
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
+private const val TIMEOUT_SOLICITUD_MS = 20_000L
 object Routes {
     const val IDENTIFICATION = "identification"
     const val REQUEST = "request"
@@ -207,6 +208,11 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                                 }
                                 return@LaunchedEffect
                             }
+                            503 -> {
+                                resultado = "error_sistema"
+                                mensaje = "El controlador no está disponible. Intenta otro método de acceso."
+                                return@LaunchedEffect
+                            }
                             else -> {
                                 resultado = "error_sistema"
                                 mensaje = "No se pudo confirmar el envío de la solicitud."
@@ -216,7 +222,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                         }
                     }
 
-                    val limite = SystemClock.elapsedRealtime() + 20_000L
+                    val limite = SystemClock.elapsedRealtime() + TIMEOUT_SOLICITUD_MS
                     while (SystemClock.elapsedRealtime() < limite) {
                         var esperaMs = 1_000L
                         val respuesta = try {
@@ -262,7 +268,15 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                                 esperaMs = segundos * 1_000L
                                 mensaje = "Esperando para volver a consultar el estado."
                             }
+                            503 -> {
+                                resultado = "error_sistema"
+                                mensaje = "El controlador no está disponible. Intenta otro método de acceso."
+                                puedeConsultar = true
+                                return@LaunchedEffect
+                            }
+
                         }
+
 
                         val restanteMs = limite - SystemClock.elapsedRealtime()
                         if (restanteMs > 0) {
