@@ -21,7 +21,7 @@ from datetime import datetime
 from access_flow import ControlAcceso
 from access_logic import validar_acceso_por_rol
 from audio import reproducir_mensaje_resultado
-from hardware import PIR_PIN
+from hardware import PIR_PIN, VENTANA_PRESENCIA
 
 
 class InterfazControlAcceso(ControlAcceso):
@@ -53,7 +53,7 @@ class InterfazControlAcceso(ControlAcceso):
         self.identificador = ""
         self.contrasena = ""
         self.timeout_pir = 30  # seconds to choose an alternate method
-        self._alternativas_hasta = 0.0
+        self._alternativas_desde = 0.0
 
         # System colors
         self.COLOR_PRIMARY = "#1a5490"
@@ -146,9 +146,14 @@ class InterfazControlAcceso(ControlAcceso):
 
     def actualizar_presencia(self, ahora):
         super().actualizar_presencia(ahora)
-        if self._captura_metodo == "alternativa" and (
-            ahora >= self._alternativas_hasta
-            or self.hardware.pir.presencia_para_api(ahora) is not True
+        if self._captura_metodo != "alternativa":
+            return
+
+        transcurrido = ahora - self._alternativas_desde
+        # Give the user time to choose even if presence expired during face recognition.
+        if transcurrido >= self.timeout_pir or (
+            transcurrido >= VENTANA_PRESENCIA
+            and self.hardware.pir.presencia_para_api(ahora) is not True
         ):
             self.volver_a_espera_desde_alternativa()
 
@@ -830,7 +835,6 @@ class InterfazControlAcceso(ControlAcceso):
             return
 
         self._captura_metodo = "alternativa"
-        self._alternativas_hasta = time.monotonic() + self.timeout_pir
         self._en_resultado = False
         self.ventana_facial = None
 
@@ -883,8 +887,8 @@ class InterfazControlAcceso(ControlAcceso):
             frame,
             text="Volver a la pantalla de espera",
             command=self.volver_a_espera_desde_alternativa,
-        ).pack(pady=12)        
-
+        ).pack(pady=12)
+        self._alternativas_desde = time.monotonic()
 
     def seleccionar_interfaz_alternativa(self):
         """Abre el login gráfico sin exigir que se active otra vez el PIR."""
