@@ -24,6 +24,9 @@ from audio import reproducir_mensaje_resultado
 from hardware import PIR_PIN
 
 
+TIEMPO_MINIMO_ALTERNATIVAS = 10
+
+
 class InterfazControlAcceso(ControlAcceso):
     """Graphical interface for the local access control system."""
     puede_facial = True
@@ -52,8 +55,8 @@ class InterfazControlAcceso(ControlAcceso):
         self.rol_seleccionado = None
         self.identificador = ""
         self.contrasena = ""
-        self.timeout_pir = 30  # seconds of inactivity
-        self.ultimo_movimiento = time.time()
+        self.timeout_pir = 30  # seconds to choose an alternate method
+        self._alternativas_desde = 0.0
 
         # System colors
         self.COLOR_PRIMARY = "#1a5490"
@@ -143,6 +146,24 @@ class InterfazControlAcceso(ControlAcceso):
 
         # Start reading the PIR sensor
         self.leer_pir()
+
+    def actualizar_presencia(self, ahora):
+        super().actualizar_presencia(ahora)
+        if self._captura_metodo != "alternativa":
+            return
+
+        transcurrido = ahora - self._alternativas_desde
+        if transcurrido >= self.timeout_pir:
+            print("[ALTERNATIVAS] Regreso a espera por inactividad.", flush=True)
+        elif (
+            transcurrido >= TIEMPO_MINIMO_ALTERNATIVAS
+            and self.hardware.pir.presencia_para_api(ahora) is not True
+        ):
+            print("[ALTERNATIVAS] Regreso a espera por presencia vencida.", flush=True)
+        else:
+            return
+
+        self.volver_a_espera_desde_alternativa()
 
     def leer_pir(self):
         """Updates the screen using the same retained presence as the buttons."""
@@ -874,8 +895,8 @@ class InterfazControlAcceso(ControlAcceso):
             frame,
             text="Volver a la pantalla de espera",
             command=self.volver_a_espera_desde_alternativa,
-        ).pack(pady=12)        
-
+        ).pack(pady=12)
+        self._alternativas_desde = time.monotonic()
 
     def seleccionar_interfaz_alternativa(self):
         """Abre el login gráfico sin exigir que se active otra vez el PIR."""
