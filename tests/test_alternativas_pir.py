@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 class PruebaAlternativasPIR(unittest.TestCase):
     def setUp(self):
-        modulos = patch.dict(sys.modules, {"hardware": Mock(VENTANA_PRESENCIA=4.0)})
+        modulos = patch.dict(sys.modules, {"hardware": Mock()})
         modulos.start()
         self.addCleanup(modulos.stop)
 
@@ -29,7 +29,7 @@ class PruebaAlternativasPIR(unittest.TestCase):
         self.control.mostrar_standby.assert_not_called()
 
         self.control.hardware.pir.presencia_para_api.return_value = False
-        self.control.actualizar_presencia(106)
+        self.control.actualizar_presencia(111)
 
         self.control.mostrar_standby.assert_called_once_with()
         self.assertIsNone(self.control._captura_metodo)
@@ -38,10 +38,10 @@ class PruebaAlternativasPIR(unittest.TestCase):
     def test_da_tiempo_para_elegir_aunque_la_presencia_ya_haya_vencido(self):
         self.control.hardware.pir.presencia_para_api.return_value = False
         self.control.actualizar_presencia(100.01)
-        self.control.actualizar_presencia(103.99)
+        self.control.actualizar_presencia(109.99)
         self.control.mostrar_standby.assert_not_called()
 
-        self.control.actualizar_presencia(104)
+        self.control.actualizar_presencia(110)
 
         self.control.mostrar_standby.assert_called_once_with()
 

@@ -21,7 +21,10 @@ from datetime import datetime
 from access_flow import ControlAcceso
 from access_logic import validar_acceso_por_rol
 from audio import reproducir_mensaje_resultado
-from hardware import PIR_PIN, VENTANA_PRESENCIA
+from hardware import PIR_PIN
+
+
+TIEMPO_MINIMO_ALTERNATIVAS = 10
 
 
 class InterfazControlAcceso(ControlAcceso):
@@ -150,12 +153,17 @@ class InterfazControlAcceso(ControlAcceso):
             return
 
         transcurrido = ahora - self._alternativas_desde
-        # Give the user time to choose even if presence expired during face recognition.
-        if transcurrido >= self.timeout_pir or (
-            transcurrido >= VENTANA_PRESENCIA
+        if transcurrido >= self.timeout_pir:
+            print("[ALTERNATIVAS] Regreso a espera por inactividad.", flush=True)
+        elif (
+            transcurrido >= TIEMPO_MINIMO_ALTERNATIVAS
             and self.hardware.pir.presencia_para_api(ahora) is not True
         ):
-            self.volver_a_espera_desde_alternativa()
+            print("[ALTERNATIVAS] Regreso a espera por presencia vencida.", flush=True)
+        else:
+            return
+
+        self.volver_a_espera_desde_alternativa()
 
     def leer_pir(self):
         """Updates the screen using the same retained presence as the buttons."""
