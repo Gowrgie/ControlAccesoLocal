@@ -593,9 +593,9 @@ class InterfazControlAcceso(ControlAcceso):
                 return
 
             try:
-                from scripts_db.db_conexion import crear_usuario
+                from scripts_db.db_conexion_admin import crear_usuario_admin
 
-                id_usuario = crear_usuario(
+                id_usuario = crear_usuario_admin(
                     nombre=entrada_nombre.get(),
                     identificador=entrada_identificador.get(),
                     clave_acceso=entrada_clave.get(),
