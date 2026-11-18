@@ -57,6 +57,25 @@ def _hash_token(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _emitir_sesion(conexion, cursor, id_usuario):
+    """Crea una sesión para una identidad ya verificada que siga activa."""
+    token = secrets.token_urlsafe(32)
+    expira = datetime.now() + timedelta(minutes=DURACION_SESION_MINUTOS)
+    cursor.execute(
+        """
+        INSERT INTO sesiones_movil (token_hash, id_usuario, expira)
+        SELECT %s, id_usuario, %s FROM usuarios
+        WHERE id_usuario = %s AND activo = TRUE
+        """,
+        (_hash_token(token), expira, id_usuario),
+    )
+    creada = cursor.rowcount == 1
+    conexion.commit()
+    if creada:
+        return {"token": token, "expira": expira}
+    return None
+
+
 def iniciar_sesion(identificador, clave):
     """Valid credentials -> {"token", "expira"}. Anything else -> None."""
     if not isinstance(identificador, str) or not isinstance(clave, str):
@@ -77,19 +96,12 @@ def iniciar_sesion(identificador, clave):
         hay_hash = usuario is not None and bool(usuario["clave_hash"])
         clave_correcta = _verificar(usuario["clave_hash"] if hay_hash else _HASH_FALSO, clave)
 
-        if not hay_hash or not usuario["activo"] or not clave_correcta:
+        try:
+            if not hay_hash or not usuario["activo"] or not clave_correcta:
+                return None
+            return _emitir_sesion(conexion, cursor, usuario["id_usuario"])
+        finally:
             cursor.close()
-            return None
-
-        token = secrets.token_urlsafe(32)
-        expira = datetime.now() + timedelta(minutes=DURACION_SESION_MINUTOS)
-        cursor.execute(
-            "INSERT INTO sesiones_movil (token_hash, id_usuario, expira) VALUES (%s, %s, %s)",
-            (_hash_token(token), usuario["id_usuario"], expira)
-        )
-        conexion.commit()
-        cursor.close()
-        return {"token": token, "expira": expira}
     finally:
         conexion.close()
 
