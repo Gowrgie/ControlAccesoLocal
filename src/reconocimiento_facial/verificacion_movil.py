@@ -25,6 +25,7 @@ UMBRAL_PAD = 0.90
 UMBRAL_IDENTIDAD = 0.45
 MARGEN_IDENTIDAD = 0.05
 LADO_MAXIMO = 1280
+ROTACION_RESCATE = 30
 
 
 def _decodificar(jpeg):
@@ -76,18 +77,28 @@ class VerificadorFacialMovil:
             print(f"[FACIAL MÓVIL] {motivo}", flush=True)
         return None
 
-    def _analizar(self, jpeg, captura):
+    def _analizar(self, jpeg, captura, rotacion_rescate=0):
         imagen = _decodificar(jpeg)
         if imagen is None:
             return self._rechazar(f"{captura}: formato o tamaño de imagen inválido")
         rostros = detectar_rostros(self._detector, imagen)
+        rotacion_aplicada = 0
+        if not rostros and rotacion_rescate:
+            alto, ancho = imagen.shape[:2]
+            matriz = cv2.getRotationMatrix2D((ancho / 2, alto / 2), rotacion_rescate, 1)
+            imagen = cv2.warpAffine(imagen, matriz, (ancho, alto))
+            rostros = detectar_rostros(self._detector, imagen)
+            rotacion_aplicada = rotacion_rescate
+
         indicaciones = evaluar_calidad(imagen, rostros)
         if indicaciones:
             return self._rechazar(f"{captura}: {indicaciones[0]}")
         rostro = rostros[0]
         if not self._rostro_vivo(imagen, rostro):
             return self._rechazar(f"{captura}: prueba de vida rechazada")
-        return extraer_embedding(self._reconocedor, imagen, rostro), _inclinacion(rostro)
+        # El reto se comprueba con el ángulo de la captura original.
+        angulo = _inclinacion(rostro) + rotacion_aplicada
+        return extraer_embedding(self._reconocedor, imagen, rostro), angulo
 
     def verificar(self, frontal, inclinada, direccion):
         """Identifica al usuario si ambas capturas pasan los controles."""
@@ -100,7 +111,8 @@ class VerificadorFacialMovil:
         primero = self._analizar(frontal, "captura frontal")
         if primero is None:
             return None
-        segundo = self._analizar(inclinada, "captura inclinada")
+        rotacion = ROTACION_RESCATE if direccion == "izquierda" else -ROTACION_RESCATE
+        segundo = self._analizar(inclinada, "captura inclinada", rotacion)
         if segundo is None:
             return None
 
