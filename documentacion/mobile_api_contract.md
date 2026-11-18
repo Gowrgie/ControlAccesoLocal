@@ -356,3 +356,50 @@ Verification
 The 20 API tests passed on macOS. A separate localhost test verified HTTPS
 with a temporary certificate and a simulated controller. Verification on
 the Raspberry Pi with its certificate, PIR and servo is pending.
+## Facial sign-in (LAC-123)
+
+Android offers sign-in by face or by identifier and passcode. Both methods
+return a session with `token` and `expira`. The presence and access request
+endpoints continue to apply the usual controller rules.
+
+| Endpoint | Request | Successful response |
+| --- | --- | --- |
+| `POST /sessions/face/challenge` | JSON field `front_sha256`, the lowercase hex SHA-256 of the frontal JPEG | `200` with `challenge_id` and `direction` (`izquierda` or `derecha`) |
+| `POST /sessions/face` | JSON fields `challenge_id`, `front_image` and `tilted_image`. The two images are base64 JPEGs, up to 256 KiB decoded per image. | `200` with the standard session response |
+
+The challenge is valid for 45 seconds, belongs to the requesting IP address
+and can be used once. The server checks the frontal image against the hash
+sent before the direction was revealed. It checks image quality, the requested
+head tilt and the MiniFASNetV2 score in both images, then matches both faces
+to the same enrolled active user. Images are processed in memory. A rejected
+match or invalid challenge returns `401`. The endpoints may also return
+`413` for oversized requests, `422` for invalid input, `429` with
+`Retry-After` after five challenge requests per IP per minute, or `503` if
+facial sign-in is unavailable. The API processes one facial verification at
+a time.
+
+### Enable facial sign-in on the Raspberry Pi
+
+Use the controller's Python environment with OpenCV and Pillow and the same
+YuNet and SFace model paths used for the local camera. Download the pinned
+MiniFASNetV2 ONNX model into the user's model directory:
+
+```bash
+mkdir -p "$HOME/modelos"
+curl -fL 'https://raw.githubusercontent.com/QingHeYang/Silent-Face-Anti-Spoofing-onnx/584d4421d7ac42c59e640796f46e886b0095367a/onnx/2.7_80x80_MiniFASNetV2.onnx' \
+  -o "$HOME/modelos/2.7_80x80_MiniFASNetV2.onnx"
+sha256sum "$HOME/modelos/2.7_80x80_MiniFASNetV2.onnx"
+export MOBILE_FACE_PAD_MODEL="$HOME/modelos/2.7_80x80_MiniFASNetV2.onnx"
+```
+
+The expected SHA-256 is
+`0cbe5caec95c31de9d2ef845cb85407d76aecd1b6a2c0e343f7d35306bfbccb8`.
+Start the HTTPS service from this terminal. If the model is missing or
+cannot be loaded, facial sign-in returns `503` and passcode sign-in remains
+available.
+
+The thresholds are initial values for validation on the target camera. Test
+with consenting enrolled users, an unenrolled user, a wrong tilt, a printed
+photo and a video displayed on a screen before relying on this method for real
+access. This implementation has not been independently evaluated for spoof
+resistance.

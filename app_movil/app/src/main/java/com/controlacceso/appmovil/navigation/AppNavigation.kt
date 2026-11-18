@@ -1,6 +1,5 @@
 package com.controlacceso.appmovil.navigation
 
-import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
@@ -9,7 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -42,8 +40,15 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     var envioIntentado by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
-    val cameraTestEnabled =
-        LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+    val nuevaSesion: (String) -> Unit = { token ->
+        tokenSesion = token
+        solicitudId = null
+        envioIntentado = false
+        navController.navigate(Routes.REQUEST) {
+            popUpTo(Routes.IDENTIFICATION)
+            launchSingleTop = true
+        }
+    }
 
     fun volverAlInicio() {
         val token = tokenSesion
@@ -70,24 +75,16 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     ) {
         composable(Routes.IDENTIFICATION) {
             IdentificationScreen(
-                onLoggedIn = { token ->
-                    tokenSesion = token
-                    solicitudId = null
-                    envioIntentado = false
-                    navController.navigate(Routes.REQUEST)
-                },
-                onFaceCapture = if (cameraTestEnabled) {
-                    { navController.navigate(Routes.FACE_CAPTURE) { launchSingleTop = true } }
-                } else {
-                    null
-                }
+                onLoggedIn = nuevaSesion,
+                onFaceCapture = { navController.navigate(Routes.FACE_CAPTURE) { launchSingleTop = true } }
             )
         }
 
-        if (cameraTestEnabled) {
-            composable(Routes.FACE_CAPTURE) {
-                FaceCaptureScreen(onBack = { navController.popBackStack() })
-            }
+        composable(Routes.FACE_CAPTURE) {
+            FaceCaptureScreen(
+                onLoggedIn = nuevaSesion,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(Routes.REQUEST) {

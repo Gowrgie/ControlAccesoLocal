@@ -12,6 +12,7 @@ from mysql.connector import Error as ErrorMySQL
 from pydantic import BaseModel, SecretStr
 
 from api.rate_limit import LimitadorSolicitudes
+from api.sesion_facial import registrar_sesion_facial
 from scripts_db import autenticacion
 
 
@@ -46,6 +47,7 @@ class AccessRequestStatus(BaseModel):
 def crear_api(
     *,
     obtener_presencia=None,
+    verificar_rostro=None,
     despachador=None,
     reloj=monotonic,
     limite_login_ip=10,
@@ -63,6 +65,8 @@ def crear_api(
             status_code=422,
             content={"error": "Datos de solicitud inválidos"},
         )
+
+    registrar_sesion_facial(api, verificar_rostro, reloj)
 
     bearer = HTTPBearer(auto_error=False)
 

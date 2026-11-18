@@ -41,6 +41,17 @@ UMBRAL_SIMILITUD = 0.363
 def cargar_datos():
     """Carga YuNet, SFace y las muestras activas almacenadas en MySQL."""
 
+    detector, reconocedor = cargar_modelos()
+    muestras = cargar_muestras()
+    if not muestras:
+        raise ValueError(
+            "No hay incrustaciones SFace válidas de usuarios activos en MySQL. "
+            "Registra primero los rostros y guarda el modelo como 'sface'."
+        )
+    return detector, reconocedor, muestras
+
+
+def cargar_modelos():
     for ruta in (YUNET, SFACE):
         if not ruta.is_file():
             raise FileNotFoundError(f"No encuentro el modelo: {ruta}")
@@ -55,6 +66,10 @@ def cargar_datos():
     )
     reconocedor = cv2.FaceRecognizerSF.create(str(SFACE), "")
 
+    return detector, reconocedor
+
+
+def cargar_muestras():
     # La vista devuelve solamente embeddings de usuarios activos.
     filas = cargar_embeddings_activos()
     embeddings_por_usuario = {}
@@ -85,13 +100,7 @@ def cargar_datos():
             vector.reshape(1, -1)
         )
 
-    if not embeddings_por_usuario:
-        raise ValueError(
-            "No hay incrustaciones SFace válidas de usuarios activos en MySQL. "
-            "Registra primero los rostros y guarda el modelo como 'sface'."
-        )
-
-    return detector, reconocedor, embeddings_por_usuario
+    return embeddings_por_usuario
 
 
 def detectar_rostros(detector, imagen):
@@ -109,12 +118,15 @@ def extraer_embedding(reconocedor, imagen, rostro):
     return np.asarray(caracteristica, dtype=np.float32).reshape(1, -1)
 
 
-def identificar_embedding(reconocedor, caracteristica, embeddings_por_usuario):
+def identificar_embedding(
+    reconocedor, caracteristica, embeddings_por_usuario, *, umbral=UMBRAL_SIMILITUD, margen=0.0
+):
     """Devuelve el usuario de la mejor coincidencia o None."""
     mejor_id_usuario = None
-    mejor_puntaje = -1.0
+    mejor_puntaje = segundo_puntaje = -1.0
 
     for id_usuario, vectores in embeddings_por_usuario.items():
+        puntaje_usuario = -1.0
         for plantilla in vectores:
             if plantilla.shape != caracteristica.shape:
                 continue
@@ -126,10 +138,16 @@ def identificar_embedding(reconocedor, caracteristica, embeddings_por_usuario):
             except (cv2.error, ValueError, TypeError):
                 continue
 
-            if puntaje > mejor_puntaje:
-                mejor_puntaje = puntaje
-                mejor_id_usuario = id_usuario
+            if puntaje > puntaje_usuario:
+                puntaje_usuario = puntaje
 
-    if mejor_puntaje >= UMBRAL_SIMILITUD:
+        if puntaje_usuario > mejor_puntaje:
+            segundo_puntaje = mejor_puntaje
+            mejor_puntaje = puntaje_usuario
+            mejor_id_usuario = id_usuario
+        elif puntaje_usuario > segundo_puntaje:
+            segundo_puntaje = puntaje_usuario
+
+    if mejor_puntaje >= umbral and mejor_puntaje - segundo_puntaje >= margen:
         return mejor_id_usuario
     return None

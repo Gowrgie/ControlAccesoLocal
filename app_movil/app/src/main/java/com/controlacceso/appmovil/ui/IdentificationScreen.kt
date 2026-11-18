@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun IdentificationScreen(
     onLoggedIn: (String) -> Unit,
-    onFaceCapture: (() -> Unit)? = null
+    onFaceCapture: () -> Unit
 ) {
     var identificador by remember { mutableStateOf("") }
     var clave by remember { mutableStateOf("") }
@@ -95,17 +95,19 @@ fun IdentificationScreen(
                 }
             }
         ) {
-            Text(if (cargando) "Verificando…" else "Continuar")
+            Text(if (cargando) "Verificando…" else "Ingresar con ID y contraseña")
         }
 
-        if (onFaceCapture != null) {
-            OutlinedButton(
-                onClick = onFaceCapture,
-                enabled = !cargando,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Probar cámara para ingreso con rostro")
-            }
+        OutlinedButton(
+            onClick = {
+                clave = ""
+                error = null
+                onFaceCapture()
+            },
+            enabled = !cargando,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Ingresar con rostro")
         }
     }
 }

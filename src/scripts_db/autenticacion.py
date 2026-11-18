@@ -106,6 +106,19 @@ def iniciar_sesion(identificador, clave):
         conexion.close()
 
 
+def iniciar_sesion_usuario_verificado(id_usuario):
+    """Emite una sesión para una identidad verificada por el servidor."""
+    conexion = conectar_bd()
+    try:
+        cursor = conexion.cursor()
+        try:
+            return _emitir_sesion(conexion, cursor, id_usuario)
+        finally:
+            cursor.close()
+    finally:
+        conexion.close()
+
+
 def validar_sesion(token, ahora=None):
     """id_usuario of a session that exists and has not expired, else None.
     ahora is only for tests; it defaults to the current time."""
