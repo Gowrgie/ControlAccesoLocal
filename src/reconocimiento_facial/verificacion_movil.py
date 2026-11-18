@@ -1,5 +1,6 @@
 """Verificación 1 a N de las capturas móviles de un reto facial."""
 
+import os
 from hashlib import sha256
 from io import BytesIO
 from math import atan2, degrees
@@ -45,6 +46,7 @@ def _inclinacion(rostro):
 
 class VerificadorFacialMovil:
     def __init__(self, modelo_pad):
+        self._diagnostico = os.getenv("MOBILE_FACE_DIAGNOSTICS") == "1"
         ruta_pad = Path(modelo_pad)
         if sha256(ruta_pad.read_bytes()).hexdigest() != MODELO_PAD_SHA256:
             raise ValueError("El archivo MiniFASNetV2 no coincide con la revisión esperada")
@@ -69,16 +71,22 @@ class VerificadorFacialMovil:
         probabilidades = np.exp(logits - logits.max())
         return probabilidades[1] / probabilidades.sum() >= UMBRAL_PAD
 
-    def _analizar(self, jpeg):
+    def _rechazar(self, motivo):
+        if self._diagnostico:
+            print(f"[FACIAL MÓVIL] {motivo}", flush=True)
+        return None
+
+    def _analizar(self, jpeg, captura):
         imagen = _decodificar(jpeg)
         if imagen is None:
-            return None
+            return self._rechazar(f"{captura}: formato o tamaño de imagen inválido")
         rostros = detectar_rostros(self._detector, imagen)
-        if evaluar_calidad(imagen, rostros):
-            return None
+        indicaciones = evaluar_calidad(imagen, rostros)
+        if indicaciones:
+            return self._rechazar(f"{captura}: {indicaciones[0]}")
         rostro = rostros[0]
         if not self._rostro_vivo(imagen, rostro):
-            return None
+            return self._rechazar(f"{captura}: prueba de vida rechazada")
         return extraer_embedding(self._reconocedor, imagen, rostro), _inclinacion(rostro)
 
     def verificar(self, frontal, inclinada, direccion):
@@ -89,10 +97,10 @@ class VerificadorFacialMovil:
             raise RuntimeError("Falló el procesamiento facial") from error
 
     def _verificar(self, frontal, inclinada, direccion):
-        primero = self._analizar(frontal)
+        primero = self._analizar(frontal, "captura frontal")
         if primero is None:
             return None
-        segundo = self._analizar(inclinada)
+        segundo = self._analizar(inclinada, "captura inclinada")
         if segundo is None:
             return None
 
@@ -100,13 +108,21 @@ class VerificadorFacialMovil:
         vector_inclinado, angulo_inclinado = segundo
         giro = angulo_inclinado - angulo_frontal
         giro_esperado = giro if direccion == "izquierda" else -giro
-        if not (abs(angulo_frontal) <= 10 and 15 <= giro_esperado <= 45):
-            return None
+        if not abs(angulo_frontal) <= 10:
+            return self._rechazar("captura frontal: cabeza fuera del ángulo inicial")
+        if giro_esperado < 0:
+            return self._rechazar("captura inclinada: dirección opuesta al reto")
+        if not 15 <= giro_esperado <= 45:
+            return self._rechazar("captura inclinada: ángulo insuficiente o excesivo")
 
         muestras = cargar_muestras()
+        if not muestras:
+            return self._rechazar("no hay muestras utilizables de usuarios activos")
         criterios = {"umbral": UMBRAL_IDENTIDAD, "margen": MARGEN_IDENTIDAD}
         id_usuario = identificar_embedding(self._reconocedor, vector_frontal, muestras, **criterios)
         if id_usuario is None:
-            return None
+            return self._rechazar("captura frontal: sin coincidencia facial clara")
         id_segundo = identificar_embedding(self._reconocedor, vector_inclinado, muestras, **criterios)
-        return id_usuario if id_usuario == id_segundo else None
+        if id_segundo != id_usuario:
+            return self._rechazar("captura inclinada: sin coincidencia con la primera")
+        return id_usuario

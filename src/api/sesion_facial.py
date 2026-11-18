@@ -1,6 +1,7 @@
 """Reto facial móvil y emisión de la sesión autenticada."""
 
 import json
+import os
 from base64 import b64decode
 from binascii import Error as ErrorBase64
 from datetime import timezone
@@ -51,6 +52,11 @@ def registrar_sesion_facial(api, verificar_rostro, reloj):
     bloqueo_retos = Lock()
     bloqueo_verificacion = Lock()
     retos = {}
+    diagnostico = os.getenv("MOBILE_FACE_DIAGNOSTICS") == "1"
+
+    def registrar_rechazo(motivo):
+        if diagnostico:
+            print(f"[FACIAL MÓVIL] {motivo}", flush=True)
 
     @api.post("/sessions/face/challenge")
     async def crear_reto(request: Request):
@@ -89,11 +95,13 @@ def registrar_sesion_facial(api, verificar_rostro, reloj):
             return _error(503, "El inicio de sesión facial no está disponible")
         try:
             id_usuario = verificar_rostro(frontal, inclinada, direccion)
-            sesion = (
-                autenticacion.iniciar_sesion_usuario_verificado(id_usuario)
-                if id_usuario is not None else None
-            )
-        except (ErrorMySQL, RuntimeError):
+            sesion = None
+            if id_usuario is not None:
+                sesion = autenticacion.iniciar_sesion_usuario_verificado(id_usuario)
+                if sesion is None:
+                    registrar_rechazo("la cuenta identificada ya no está disponible")
+        except (ErrorMySQL, RuntimeError) as error:
+            registrar_rechazo(f"servicio de verificación no disponible ({type(error).__name__})")
             return _error(503, "El inicio de sesión facial no está disponible")
         finally:
             bloqueo_verificacion.release()
@@ -120,11 +128,13 @@ def registrar_sesion_facial(api, verificar_rostro, reloj):
         with bloqueo_retos:
             reto = retos.get(clave)
             if reto is None or reto[0] != _ip(request):
+                registrar_rechazo("reto desconocido, reutilizado o de otro cliente")
                 return _error(401, "El reto facial no es válido o ya venció")
             del retos[clave]
 
         _, direccion, vence, huella = reto
         if vence <= reloj():
+            registrar_rechazo("reto vencido")
             return _error(401, "El reto facial no es válido o ya venció")
 
         try:
@@ -139,6 +149,7 @@ def registrar_sesion_facial(api, verificar_rostro, reloj):
             return _error(413, "Las capturas superan el tamaño permitido")
 
         if not compare_digest(sha256(frontal).hexdigest(), huella):
+            registrar_rechazo("la primera captura no corresponde al reto")
             return _error(401, "La captura no corresponde al reto facial")
 
         return await run_in_threadpool(comprobar_rostro, frontal, inclinada, direccion)
