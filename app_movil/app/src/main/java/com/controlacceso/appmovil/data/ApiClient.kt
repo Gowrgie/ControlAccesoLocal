@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
-    // Cambia esto por la IP o el nombre local real de la Raspberry Pi cuando la tengas.
+    // El sistema resuelve el nombre local; no se fija una dirección IP en el cliente.
     private const val BASE_URL = "https://raspberrypi.local:8000/"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -16,7 +16,7 @@ object ApiClient {
     }
 
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(2, TimeUnit.SECONDS)  // NFR-14: menos de 2 segundos por llamada
+        .connectTimeout(2, TimeUnit.SECONDS)
         .readTimeout(2, TimeUnit.SECONDS)
         .addInterceptor(loggingInterceptor)
         .build()
