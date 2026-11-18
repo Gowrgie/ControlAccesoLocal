@@ -28,7 +28,7 @@ The app identifies the user, checks PIR presence, sends an access request, and d
 
 | Operation | Endpoint | Response Handling |
 | --- | --- | --- |
-| Sign in | `POST /sessions` | `200` starts the flow with the token and expiration time. A `401` during sign-in displays an invalid credentials message. |
+| Sign in | `POST /sessions` | `200` starts the flow with the token and expiration time. A `401` during sign-in displays an invalid credentials message, a `429` displays a too-many-attempts message, and a `503` indicates the authentication service is unavailable. |
 | Update the request button | `GET /presence` | `200` updates the presence status. If the check fails, the app disables the request button while the status is unknown. |
 | Submit an access request | `POST /access-requests` | `202` confirms acceptance for processing. `409` for a UUID owned by the current session indicates that the request already exists and its status can be checked. `403` can indicate that presence is inactive or that the UUID belongs to another session. |
 | Check the result | `GET /access-requests/{request_id}` | `200` updates the request status. The UI displays the result when the status reaches `complete` and shows an expiration message when it reaches `expired`. |
