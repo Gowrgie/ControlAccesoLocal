@@ -10,22 +10,30 @@ sequenceDiagram
     participant Controller as Raspberry Pi Controller
     participant Hardware as LEDs / Buzzer / Speaker / Motor
     %% USER LOGIN
-    User->>App: Enter user ID and passcode
-    App->>API: POST /sessions (credentials via HTTPS)
-    API->>Auth: Validate login credentials
-    Auth->>DB: Query user and password hash
-    DB-->>Auth: Return user information
-    Auth->>Auth: Verify passcode and user status
-    Auth-->>API: Authentication result
-    alt Valid credentials
-        API-->>App: 200 OK (session token and expiration)
-        App-->>User: Login successful
-    else Invalid credentials
-        API-->>App: 401 Unauthorized
-        App-->>User: Display invalid credentials
-    else Authentication service unavailable
-        API-->>App: 503 Service Unavailable
-        App-->>User: Display technical failure
+    alt ID and passcode
+        User->>App: Enter ID and passcode
+        opt User chooses to link this phone
+            App->>App: Create a P-256 key in Android Keystore
+        end
+        App->>API: POST /sessions with credentials and optional public key
+        API->>Auth: Verify passcode and active account
+        Auth->>DB: Read account and register public key if requested
+    else Android biometrics on a linked phone
+        User->>App: Select biometric sign-in
+        App->>API: POST /sessions/biometric/challenge with credential ID
+        API-->>App: Return one-use challenge
+        App->>App: Show Android prompt and sign with the Keystore key
+        App->>API: POST /sessions/biometric with challenge and signature
+        API->>Auth: Verify signature for the linked key and active account
+        Auth->>DB: Read linked public key and user status
+    end
+    alt Verified sign-in
+        Auth->>DB: Store session token hash and expiration
+        API-->>App: 200 with session token and expiration
+        App-->>User: Show access request screen
+    else Rejected or unavailable
+        API-->>App: Return authentication error
+        App-->>User: Show error or offer ID and passcode
     end
     %% AUTHENTICATED MOBILE SESSION
     opt Authenticated session

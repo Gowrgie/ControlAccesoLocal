@@ -1,13 +1,15 @@
-Mobile API Contract
+# Mobile API Contract
 The Raspberry Pi exposes a local HTTPS service for the Android app. It reuses
 the existing validation logic (access_logic.py) and authentication module
 (autenticacion.py). The service is reachable only from the local network
 (NFR-14).
-Security
+## Security
 All endpoints use HTTPS with TLS 1.2 or later. Protected operations use
 Authorization: Bearer <token>. See [Mobile API security](mobile_security.md)
 for certificate trust, session handling, and rate limits.
-OpenAPI contract
+## OpenAPI contract
+
+```yaml
 openapi: 3.0.3
 info:
   title: ControlAccesoLocal Mobile API
@@ -36,6 +38,43 @@ components:
           type: string
           format: password
           writeOnly: true
+        biometric_public_key:
+          type: string
+          format: byte
+          minLength: 1
+          maxLength: 164
+          description: Optional P-256 DER public key to link after a successful passcode sign-in.
+
+    BiometricChallengeRequest:
+      type: object
+      required: [credential_id]
+      properties:
+        credential_id:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{32}$'
+
+    BiometricChallenge:
+      type: object
+      required: [challenge]
+      properties:
+        challenge:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{32}$'
+          description: Single-use ASCII value valid for 60 seconds.
+
+    BiometricSessionRequest:
+      type: object
+      required: [challenge, signature]
+      properties:
+        challenge:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{32}$'
+        signature:
+          type: string
+          format: byte
+          minLength: 1
+          maxLength: 108
+          description: DER ECDSA signature of the ASCII challenge using SHA-256.
 
     Session:
       type: object
@@ -46,6 +85,10 @@ components:
         expira:
           type: string
           format: date-time
+        biometric_credential_id:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{32}$'
+          description: Returned when this password sign-in links a device key.
 
     Presence:
       type: object
@@ -177,6 +220,56 @@ paths:
         '503':
           $ref: '#/components/responses/AuthenticationUnavailable'
 
+  /sessions/biometric/challenge:
+    post:
+      summary: Request a biometrics-protected sign-in challenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BiometricChallengeRequest'
+      responses:
+        '200':
+          description: Challenge bound to this credential and source IP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiometricChallenge'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/AuthenticationUnavailable'
+
+  /sessions/biometric:
+    post:
+      summary: Verify the signature and start a session for the linked user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BiometricSessionRequest'
+      responses:
+        '200':
+          description: Session created, with the expiration timestamp in UTC
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Invalid challenge, invalid signature, or inactive account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '503':
+          $ref: '#/components/responses/AuthenticationUnavailable'
+
   /presence:
     get:
       summary: Current PIR presence state
@@ -286,7 +379,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-State machine
+```
+
+## State machine
+
 - present is the app state after GET /presence reports presence, before
   the app submits a request.
 - pending means the request is next in the queue or is already running.
@@ -318,7 +414,9 @@ stateDiagram-v2
     complete --> [*]: app returns to standby
     expired --> [*]: app shows timeout and returns to standby
 ```
-Timing
+
+## Timing
+
 - Session lifetime is 10 minutes (DURACION_SESION_MINUTOS in
   autenticacion.py).
 - Queue timeout is 10 seconds from acceptance. Once the controller takes
@@ -326,33 +424,93 @@ Timing
   controller returns to standby.
 - Network response time has a target of under 2 seconds per HTTP round
   trip, per NFR-14.
-Running the mobile API on the Raspberry Pi
+
+## Running the mobile API on the Raspberry Pi
+
 From the repository root, use the Python environment that already runs
 the Raspberry Pi controller.
+
+```bash
 python3 -m pip install -r requirements-mobile-api.txt
-Set API_HOST to the Raspberry Pi's LAN IP address. Set API_CERT and
-API_KEY to the server certificate and private key paths. Keep the private
+```
+
+Set `API_HOST` to the Raspberry Pi's LAN IP address. Set `API_CERT` and
+`API_KEY` to the server certificate and private key paths. Keep the private
 key outside the repository.
+
+```bash
 python3 src/Main_code.py --solo-botones \
   --api-host "$API_HOST" \
   --api-cert "$API_CERT" \
   --api-key "$API_KEY"
-Omit --solo-botones to use the graphical controller. In either mode, the API
+
+```
+
+Omit `--solo-botones` to use the graphical controller. In either mode, the API
 listens on HTTPS port 8000 and shares the active controller's dispatcher.
 Android connects to https://raspberrypi.local:8000/ using the certificate
 trust configuration described in [Mobile API security](mobile_security.md).
-Endpoint responses
-Endpoint	Success	Other responses
-POST /sessions	200 with token and expira	401, 422, 429, 503
-DELETE /sessions	204 with no body, including on repeat requests	401, 503
-GET /presence	200 with present: true or present: false	401, 429, 503
-POST /access-requests	202 with the queued request status	401, 403, 409, 422, 429, 503
-GET /access-requests/{request_id}	200 with the request status and result	401, 403, 404, 422, 429, 503
 
+## Endpoint responses
 
-The API returns a generic error message for malformed requests (422).
-Rate-limited responses (429) include Retry-After in seconds.
-Verification
-The 20 API tests passed on macOS. A separate localhost test verified HTTPS
-with a temporary certificate and a simulated controller. Verification on
-the Raspberry Pi with its certificate, PIR and servo is pending.
+| Endpoint | Success | Other responses |
+| --- | --- | --- |
+| `POST /sessions` | `200` with token and expiration, plus credential ID when linking | `401`, `422`, `429`, `503` |
+| `DELETE /sessions` | `204` with no body, including on repeat requests | `401`, `503` |
+| `POST /sessions/biometric/challenge` | `200` with a one-use challenge | `422`, `429`, `503` |
+| `POST /sessions/biometric` | `200` with token and expiration | `401`, `422`, `503` |
+| `GET /presence` | `200` with presence status | `401`, `429`, `503` |
+| `POST /access-requests` | `202` with queued request status | `401`, `403`, `409`, `422`, `429`, `503` |
+| `GET /access-requests/{request_id}` | `200` with request state and result | `401`, `403`, `404`, `422`, `429`, `503` |
+
+Rate-limited responses include `Retry-After` in seconds.
+
+## Verification
+
+Automated tests cover password-based linking, signature verification,
+challenge reuse, and inactive accounts. Password sign-in was confirmed on the
+Moto e13. Biometric sign-in still needs an end-to-end test on a handset that
+exposes Class 3 biometrics to the app.
+
+## Android biometric sign-in (LAC-123)
+
+The sign-in screen offers an option to link this phone during a successful
+identifier and passcode sign-in. Android generates a P-256 key in Android
+Keystore and requires a strong biometric whenever the app uses the private
+key to sign. The Raspberry Pi stores the corresponding public key and its
+account association. The Android system chooses the biometric modality
+available on the phone.
+
+| Endpoint | Request | Successful response |
+| --- | --- | --- |
+| `POST /sessions` | Existing sign-in fields plus optional `biometric_public_key`, a base64 DER SubjectPublicKeyInfo for a P-256 key | Standard session, plus `biometric_credential_id` when a key was linked |
+| `POST /sessions/biometric/challenge` | `credential_id` returned at enrollment | `challenge`, valid for 60 seconds and usable once |
+| `POST /sessions/biometric` | `challenge` and `signature`, the base64 DER ECDSA signature over the ASCII challenge using SHA-256 | Standard session with `token` and `expira` |
+
+The server limits challenge issuance to five per IP per minute and binds each
+challenge to the credential and the originating IP. A missing or revoked
+credential, invalid signature or inactive user fails authentication. Successful
+biometric and password sign-ins use the same access request flow and authorization
+checks. The server verifies possession of the linked key. Attestation of the
+client key's hardware origin is outside this implementation.
+
+### Set up the Raspberry Pi
+
+With the application stopped, apply the migration once using a MySQL
+administrator, then update the existing Python environment.
+
+```bash
+mysql -u root -p < src/scripts_db/add_mobile_biometrics.sql
+"$HOME/ControlAccesoLocal-repo/.venv-rpi/bin/python" -m pip install -r requirements-mobile-api.txt
+```
+
+Restart the HTTPS service with its usual command. In the Android app, enroll a
+strong biometric in Android settings if the phone supports one. On the first
+sign-in, select **Activar biometría en este teléfono** and enter the project
+identifier and passcode. Return to identification and choose **Ingresar con
+biometría** to verify the linked credential. Phones with no strong biometric
+available can sign in with ID and passcode.
+
+To revoke a lost phone's credential, delete its row in
+`credenciales_biometricas_movil` using a MySQL administrator account. Linking a
+replacement phone requires another password sign-in.

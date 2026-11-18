@@ -13,14 +13,20 @@ flowchart TD
     G --> H{New access operation available?}
     %% MOBILE API REQUEST
     E --> MB1[/Receive mobile login and access request/]
-    MB1 --> MB2{Encrypted and authenticated local connection?}
+    MB1 --> MB2{Encrypted local connection?}
     MB2 -- No --> MB3[/Reject insecure request/]
     MB3 --> MB4[/Show technical error in mobile app/]
     MB4 --> Z
-    MB2 -- Yes --> MB5{PIR currently detects presence?}
+    MB2 -- Yes --> ML[Verify passcode or linked-device signature]
+    ML --> MS{Valid mobile session?}
+    MS -- No --> MB4
+    MS -- Yes --> MB5{PIR currently detects presence?}
     MB5 -- No --> MB6[/Inform mobile app that access is unavailable/]
     MB6 --> Z
-    MB5 -- Yes --> H
+    MB5 -- Yes --> MQ[Queue request and wait for its turn]
+    MQ --> MP{Turn available before expiry with PIR still active?}
+    MP -- No --> MB6
+    MP -- Yes --> MOB1
     %% SHARED OPERATION CONTROL
     H -- No --> H1[/Notify that system is busy/]
     H1 --> Z
@@ -29,7 +35,6 @@ flowchart TD
     I -- GUI --> J{GUI and monitor available?}
     I -- Physical buttons --> K
     I -- Facial recognition --> FA1
-    I -- Mobile API --> MOB1
     I -- Facial enrollment --> EN1
     %% GUI AUTHENTICATION
     J -- Yes --> J1[/Capture user ID and passcode through GUI/]
@@ -47,10 +52,9 @@ flowchart TD
     R --> S[Discard captured data]
     S --> Z
     P -- Yes --> L
-    %% MOBILE AUTHENTICATION
-    MOB1[/Receive mobile user ID and passcode through API/]
-    MOB1 --> MOB2[Forward credentials to shared validation logic]
-    MOB2 --> L
+    %% MOBILE SESSION AUTHORIZATION
+    MOB1[Resolve user from the mobile session]
+    MOB1 --> FA8
     %% SHARED CREDENTIAL VALIDATION
     L --> DB[(Local MySQL Database)]
     DB --> T[Query user, passcode hash, role, and permissions]

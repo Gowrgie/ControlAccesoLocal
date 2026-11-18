@@ -38,6 +38,15 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     var envioIntentado by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
+    val nuevaSesion: (String) -> Unit = { token ->
+        tokenSesion = token
+        solicitudId = null
+        envioIntentado = false
+        navController.navigate(Routes.REQUEST) {
+            popUpTo(Routes.IDENTIFICATION)
+            launchSingleTop = true
+        }
+    }
 
     fun volverAlInicio() {
         val token = tokenSesion
@@ -63,12 +72,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
         startDestination = Routes.IDENTIFICATION
     ) {
         composable(Routes.IDENTIFICATION) {
-            IdentificationScreen(onLoggedIn = { token ->
-                tokenSesion = token
-                solicitudId = null
-                envioIntentado = false
-                navController.navigate(Routes.REQUEST)
-            })
+            IdentificationScreen(onLoggedIn = nuevaSesion)
         }
 
         composable(Routes.REQUEST) {

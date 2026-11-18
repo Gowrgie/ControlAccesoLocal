@@ -23,7 +23,7 @@ flowchart TD
     end
     %% MOBILE APPLICATION
     subgraph L3["Mobile Application"]
-        M1["Enter user ID and passcode"]
+        M1["Sign in with ID and passcode or Android biometrics"]
         M2["Send access request through local network"]
         M3["Display access result"]
         M4["Display technical failure or unavailable request"]
@@ -32,9 +32,11 @@ flowchart TD
     %% LOCAL API
     subgraph L4["Local API Service"]
         API1["Receive mobile request on Raspberry Pi"]
+        ML["Verify passcode or linked-device signature"]
+        MS{"Session issued?"}
         API2{"Encrypted and authenticated connection?"}
         API3{"PIR presence detected?"}
-        API4["Forward credentials to shared validation"]
+        API4["Resolve authenticated account from the session"]
         API5["Reject insecure request"]
         API6["Reject request without detected presence"]
         API7["Return one of four access results"]
@@ -88,7 +90,10 @@ flowchart TD
     H2 -- Yes --> S0
     %% MOBILE REQUEST
     U4 --> M1
-    M1 --> M2
+    M1 --> ML
+    ML --> MS
+    MS -- No --> M4
+    MS -- Yes --> M2
     M2 --> API1
     API1 --> API2
     API2 -- No --> API5
@@ -97,7 +102,10 @@ flowchart TD
     API2 -- Yes --> API3
     API3 -- No --> API6
     API6 --> M4
-    API3 -- Yes --> S0
+    API3 -- Yes --> MQ[Queue mobile request and wait for its turn]
+    MQ --> MP{Turn available before expiry with PIR still active?}
+    MP -- No --> M4
+    MP -- Yes --> API4
     %% SHARED OPERATION CONTROL
     U5 --> S0
     S0 -- No --> M4
@@ -120,8 +128,7 @@ flowchart TD
     S5 -- Yes --> S8
     H4 --> S8
     %% MOBILE SHARED VALIDATION
-    S2 -- Mobile API --> API4
-    API4 --> S8
+    API4 --> S13
     %% CREDENTIAL VALIDATION
     S8 <-->|Query credentials| D1
     S8 --> S9

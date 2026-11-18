@@ -1,50 +1,25 @@
 """Reconocimiento facial con la cámara y las incrustaciones activas de MySQL."""
 
-import os
-from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 import cv2
-import numpy as np
 from PIL import Image, ImageTk
 
 from camera import Camera
-from scripts_db.db_conexion import cargar_embeddings_activos
 from .calidad_captura import evaluar_calidad
+from .comparacion import (
+    cargar_datos,
+    detectar_rostros,
+    extraer_embedding,
+    identificar_embedding,
+)
 
 
 # ---------------------------------------------------------------------------
 # Configuración
 # ---------------------------------------------------------------------------
 
-# Por defecto busca los modelos en ~/modelos.
-# Se puede cambiar la carpeta con la variable MODELOS_FACIALES_DIR.
-DIRECTORIO_MODELOS = Path(
-    os.environ.get(
-        "MODELOS_FACIALES_DIR",
-        str(Path.home() / "modelos"),
-    )
-)
-
-YUNET = Path(
-    os.environ.get(
-        "YUNET_MODEL_PATH",
-        str(DIRECTORIO_MODELOS / "yunet.onnx"),
-    )
-)
-SFACE = Path(
-    os.environ.get(
-        "SFACE_MODEL_PATH",
-        str(DIRECTORIO_MODELOS / "sface.onnx"),
-    )
-)
-
-# Este valor debe ser igual al que registrar_rostro.py escriba en la columna
-# "modelo" de la tabla embeddings_faciales.
-MODELO_EMBEDDING = "sface"
-
-UMBRAL_SIMILITUD = 0.363
 PROCESAR_CADA = 3
 ANCHO_PREVIEW = 800
 ALTO_PREVIEW = 450
@@ -58,66 +33,6 @@ COLOR_ERROR = "#5f6368"
 COLOR_CV_ESPERA = (0, 165, 255)
 COLOR_CV_AUTORIZADO = (0, 180, 0)
 COLOR_CV_DENEGADO = (0, 0, 255)
-
-
-# ---------------------------------------------------------------------------
-# Carga de modelos y muestras faciales
-# ---------------------------------------------------------------------------
-
-def cargar_datos():
-    """Carga YuNet, SFace y las muestras activas almacenadas en MySQL."""
-
-    for ruta in (YUNET, SFACE):
-        if not ruta.is_file():
-            raise FileNotFoundError(f"No encuentro el modelo: {ruta}")
-
-    detector = cv2.FaceDetectorYN.create(
-        str(YUNET),
-        "",
-        (320, 320),
-        0.8,
-        0.3,
-        5000,
-    )
-    reconocedor = cv2.FaceRecognizerSF.create(str(SFACE), "")
-
-    # La vista devuelve solamente embeddings de usuarios activos.
-    filas = cargar_embeddings_activos()
-    embeddings_por_usuario = {}
-
-    for fila in filas:
-        modelo = str(fila.get("modelo") or "").strip().casefold()
-
-        # No comparar vectores generados por modelos distintos.
-        if modelo != MODELO_EMBEDDING:
-            continue
-
-        id_usuario = fila.get("id_usuario")
-        datos_embedding = fila.get("embedding")
-
-        if id_usuario is None or datos_embedding is None:
-            continue
-
-        try:
-            vector = np.frombuffer(bytes(datos_embedding), dtype=np.float32)
-        except (TypeError, ValueError):
-            continue
-
-        # SFace genera un vector de 128 valores float32.
-        if vector.size != 128:
-            continue
-
-        embeddings_por_usuario.setdefault(int(id_usuario), []).append(
-            vector.reshape(1, -1)
-        )
-
-    if not embeddings_por_usuario:
-        raise ValueError(
-            "No hay incrustaciones SFace válidas de usuarios activos en MySQL. "
-            "Registra primero los rostros y guarda el modelo como 'sface'."
-        )
-
-    return detector, reconocedor, embeddings_por_usuario
 
 
 # ---------------------------------------------------------------------------
@@ -290,11 +205,7 @@ class VentanaReconocimiento:
     # -----------------------------------------------------------------------
 
     def procesar_imagen(self, imagen):
-        alto, ancho = imagen.shape[:2]
-        self.detector.setInputSize((ancho, alto))
-
-        _, rostros = self.detector.detect(imagen)
-        self.rostros_actuales = [] if rostros is None else list(rostros)
+        self.rostros_actuales = detectar_rostros(self.detector, imagen)
 
         problemas = evaluar_calidad(imagen, self.rostros_actuales)
 
@@ -310,12 +221,7 @@ class VentanaReconocimiento:
         rostro = self.rostros_actuales[0]
 
         try:
-            cara_alineada = self.reconocedor.alignCrop(imagen, rostro)
-            caracteristica = self.reconocedor.feature(cara_alineada)
-            caracteristica = np.asarray(
-                caracteristica,
-                dtype=np.float32,
-            ).reshape(1, -1)
+            caracteristica = extraer_embedding(self.reconocedor, imagen, rostro)
         except (cv2.error, ValueError, TypeError) as error:
             print("[FACIAL] No se pudo procesar el rostro:", error, flush=True)
             self.mostrar_estado(
@@ -325,34 +231,10 @@ class VentanaReconocimiento:
             )
             return
 
-        mejor_id_usuario = None
-        mejor_puntaje = -1.0
-
-        for id_usuario, vectores in self.embeddings_por_usuario.items():
-            for plantilla in vectores:
-                if plantilla.shape != caracteristica.shape:
-                    continue
-
-                try:
-                    puntaje = self.reconocedor.match(
-                        caracteristica,
-                        plantilla,
-                        cv2.FaceRecognizerSF_FR_COSINE,
-                    )
-                    puntaje = float(puntaje)
-                except (cv2.error, ValueError, TypeError):
-                    continue
-
-                if puntaje > mejor_puntaje:
-                    mejor_puntaje = puntaje
-                    mejor_id_usuario = id_usuario
-
-        # El reconocedor de base de datos registra el intento facial y valida
-        # que el usuario siga activo y tenga permiso de apertura.
-        if mejor_id_usuario is not None and mejor_puntaje >= UMBRAL_SIMILITUD:
-            self.terminar(id_usuario=mejor_id_usuario)
-        else:
-            self.terminar(id_usuario=None)
+        id_usuario = identificar_embedding(
+            self.reconocedor, caracteristica, self.embeddings_por_usuario
+        )
+        self.terminar(id_usuario=id_usuario)
 
     def terminar(self, id_usuario=None, error=None):
         """Una sola salida por intento: id (o None) o un error."""

@@ -22,7 +22,7 @@
 
 **FR-10.** The system shall display the graphical interface on a monitor connected to the Raspberry Pi.
 
-**FR-11.** The system shall store and query necessary information in a MySQL database, and log each access attempt with the date and time, user, mechanism used (GUI or physical buttons), and result.
+**FR-11.** The system shall store and query necessary information in a MySQL database, and log each access attempt with the date and time, user, mechanism used (GUI, physical buttons, local facial recognition, or mobile app), and result.
 
 **FR-12.** The system shall identify each user within the system and assign them one of three roles (administrator, technical service, or general user) with distinct permissions.
 
@@ -61,6 +61,8 @@
 **FR-29:** The mobile app shall use the same validation logic as the other access methods, through an API service reachable only from the local network, without its own separate rules.
 
 **FR-30:** Buttons, GUI, and facial recognition shall keep working while the mobile method is active.
+
+**FR-31:** The app shall let a registered user link a phone during an identifier-and-passcode sign-in and subsequently sign in with Android Class 3 biometrics. The Raspberry Pi shall verify a signature from the linked device credential and issue a mobile session for an active user. Identifier-and-passcode sign-in shall remain available. Both sign-in methods shall use the same PIR and access permission checks.
 
 ## Non-Functional Requirements
 

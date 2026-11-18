@@ -18,18 +18,23 @@ sequenceDiagram
     System->>Indicators: Emit system-ready sound
     Note over Mobile,API: Encrypted and authenticated communication within the local network
     %% MOBILE LOGIN
-    opt Mobile application login
-        User->>Mobile: Enter user ID and passcode
-        Mobile->>API: Send login credentials securely
-        API->>Auth: Verify login using shared authentication
-        Auth->>DB: Query user and stored passcode hash
-        DB-->>Auth: Return user information or query error
-        Auth->>Auth: Verify credentials and account status
-        Auth-->>API: Login validation result
-        alt Valid credentials
-            API-->>Mobile: Confirm authenticated session
-        else Invalid credentials or technical error
-            API-->>Mobile: Display login failure
+    opt Mobile application sign-in
+        alt ID and passcode
+            User->>Mobile: Enter ID and passcode
+            Mobile->>API: POST /sessions with optional device public key
+            API->>DB: Verify passcode and link the key if requested
+        else Android biometrics
+            User->>Mobile: Select biometric sign-in
+            Mobile->>API: Request a one-use challenge
+            API-->>Mobile: Return challenge
+            Mobile->>Mobile: Authorize signing in Android
+            Mobile->>API: Submit signed challenge
+            API->>DB: Load linked key and verify signature and account
+        end
+        alt Valid sign-in
+            API-->>Mobile: Issue standard mobile session
+        else Rejected or unavailable
+            API-->>Mobile: Return authentication error
         end
     end
     %% ACCESS METHOD
@@ -93,12 +98,12 @@ sequenceDiagram
         alt Another operation is active
             System-->>User: Access operation unavailable
             opt Mobile request
-                System-->>API: Return system busy response
-                API-->>Mobile: Display technical error
+                System-->>API: Report that the mobile request is queued
+                API-->>Mobile: Return busy status for polling
             end
         else Operation available
             System->>Auth: Validate access using the selected method
-            Auth->>DB: Query user, credentials, role, and permissions
+            Auth->>DB: Query identity and access permissions for the selected method
             alt Database query failure or timeout
                 DB-->>Auth: Query error
                 Auth-->>System: System error

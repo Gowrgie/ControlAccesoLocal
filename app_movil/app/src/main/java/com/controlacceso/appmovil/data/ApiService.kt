@@ -8,6 +8,14 @@ interface ApiService {
     @POST("sessions")
     suspend fun login(@Body request: LoginRequest): Response<SessionResponse>
 
+    @POST("sessions/biometric/challenge")
+    suspend fun createBiometricChallenge(
+        @Body request: BiometricChallengeRequest
+    ): Response<BiometricChallenge>
+
+    @POST("sessions/biometric")
+    suspend fun loginBiometrically(@Body request: BiometricSessionRequest): Response<SessionResponse>
+
     @DELETE("sessions")
     suspend fun logout(@Header("Authorization") bearerToken: String): Response<Unit>
 
