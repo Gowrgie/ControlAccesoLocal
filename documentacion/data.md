@@ -1,7 +1,7 @@
 ```mermaid
 erDiagram
     ROLES ||--o{ USUARIOS : "has"
-    USUARIOS ||--o{ INTENTOS_ACCESO : "makes"
+    USUARIOS |o--o{ INTENTOS_ACCESO : "makes"
     USUARIOS ||--o{ EMBEDDINGS_FACIALES : "owns"
     USUARIOS ||--o{ SESIONES_MOVIL : "opens"
 
@@ -16,19 +16,19 @@ erDiagram
     USUARIOS {
         int id_usuario PK
         string nombre
-        string identificador
+        string identificador UK
         string clave_acceso
-        string clave_hash
+        string clave_hash "Nullable"
         int id_rol FK
         boolean activo
     }
 
     INTENTOS_ACCESO {
         int id_intento PK
-        int id_usuario FK
+        int id_usuario FK "Nullable"
         datetime fecha_hora
-        string mecanismo
-        string resultado
+        enum mecanismo
+        enum resultado
     }
 
     EMBEDDINGS_FACIALES {
@@ -41,7 +41,7 @@ erDiagram
 
     SESIONES_MOVIL {
         int id_sesion PK
-        string token_hash
+        char(64) token_hash UK
         int id_usuario FK
         datetime creada
         datetime expira
