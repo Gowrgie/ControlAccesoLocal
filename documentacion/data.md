@@ -3,6 +3,7 @@ erDiagram
     ROLES ||--o{ USUARIOS : "has"
     USUARIOS ||--o{ INTENTOS_ACCESO : "makes"
     USUARIOS ||--o{ EMBEDDINGS_FACIALES : "owns"
+    USUARIOS ||--o{ SESIONES_MOVIL : "opens"
 
     ROLES {
         int id_rol PK
@@ -17,6 +18,7 @@ erDiagram
         string nombre
         string identificador
         string clave_acceso
+        string clave_hash
         int id_rol FK
         boolean activo
     }
@@ -24,7 +26,7 @@ erDiagram
     INTENTOS_ACCESO {
         int id_intento PK
         int id_usuario FK
-        datetime fecha_fecha_hora
+        datetime fecha_hora
         string mecanismo
         string resultado
     }
@@ -35,5 +37,13 @@ erDiagram
         blob embedding
         string modelo
         datetime fecha_registro
+    }
+
+    SESIONES_MOVIL {
+        int id_sesion PK
+        string token_hash
+        int id_usuario FK
+        datetime creada
+        datetime expira
     }
 ```
