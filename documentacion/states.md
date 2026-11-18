@@ -16,12 +16,12 @@ flowchart TD
     ML2 -- No --> ML3[Mobile connection rejected state]
     ML3 --> ML4[/Display connection error in mobile app/]
     ML4 --> D
-    ML2 -- Yes --> ML5[Validate user ID and passcode using shared authentication]
+    ML2 -- Yes --> ML5[Verify passcode or a signature from the linked Android device]
     ML5 --> ML6{Database query successful?}
     ML6 -- No --> ML7[Mobile login error state]
     ML7 --> ML8[/Display technical login error/]
     ML8 --> D
-    ML6 -- Yes --> ML9{Valid user and passcode?}
+    ML6 -- Yes --> ML9{Valid sign-in for an active user?}
     ML9 -- No --> ML10[Mobile login denied state]
     ML10 --> ML11[/Display invalid credentials/]
     ML11 --> D
@@ -36,7 +36,10 @@ flowchart TD
     ML16 -- Yes --> ML18{PIR still detects presence?}
     ML18 -- No --> ML19[/Display access request unavailable/]
     ML19 --> D
-    ML18 -- Yes --> SLOT
+    ML18 -- Yes --> MQ[Mobile request queued]
+    MQ --> MP{Turn available before expiry with PIR still active?}
+    MP -- No --> ML19
+    MP -- Yes --> MOB1
     %% SHARED OPERATION CONTROL
     SLOT -- No --> BUSY[System busy state]
     BUSY --> BUSY1[/Notify requesting interface/]
@@ -46,7 +49,6 @@ flowchart TD
     H -- GUI --> GUI1[/Capture user ID and passcode through GUI/]
     H -- Physical buttons --> BTN1[/Capture user ID and passcode through buttons/]
     H -- Facial recognition --> FR1[/Capture live facial image/]
-    H -- Mobile application --> MOB1[/Receive credentials from authenticated mobile request/]
     H -- Facial enrollment --> EN1{Administrator authorized?}
     %% GRAPHICAL INTERFACE
     GUI1 --> O[Access data captured]
@@ -59,8 +61,8 @@ flowchart TD
     BTN5 --> BTN6[Discard incomplete data]
     BTN6 --> RESET
     BTN3 -- Yes --> O
-    %% MOBILE CREDENTIALS
-    MOB1 --> O
+    %% MOBILE SESSION AUTHORIZATION
+    MOB1[Resolve account from authenticated mobile session] --> FR9
     %% SHARED CREDENTIAL VALIDATION
     O --> Q[Query user, stored passcode hash, role, and permissions]
     Q -.-> DB[(Local MySQL Database)]

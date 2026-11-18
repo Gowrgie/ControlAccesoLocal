@@ -1,22 +1,22 @@
 # Local Access Control
 
-Local access control system for a Raspberry Pi. Users identify themselves with their face, a graphical interface, or three physical buttons. Access is checked against a local MySQL database and the result is shown with LEDs, a buzzer, a speaker and a servo that represents the access point.
+Local access control system for a Raspberry Pi. Users can use the Android app, the local graphical interface, three physical buttons, or the Raspberry Pi camera. Access is checked against a local MySQL database and the result is shown with LEDs, a buzzer, a speaker and a servo that represents the access point.
 
 ## Objectives
 
-- Allow local access without internet, using physical buttons, a graphical interface or facial recognition.
+- Allow access over the local network from Android, or directly through the physical buttons, graphical interface, or Raspberry Pi camera.
 - Keep the buttons working as a fallback when the screen or the camera is not available.
 - Record every access attempt with its date, user, method and result.
 
 ## Features
 
-- **Three authentication methods:** physical buttons (3 buttons), graphical interface (Tkinter) and local facial recognition (camera).
+- **Access methods:** physical buttons, the Tkinter interface, local facial recognition, and the Android app. The app offers ID and passcode sign-in and an optional Android biometric sign-in for linked phones.
 - **Roles:** administrator, technical service and general user, with different permissions.
 - **Presence detection:** a PIR sensor enables the interaction. The sensor alone never grants access.
 - **Feedback:** green and red LEDs, a buzzer, speaker audio and the on-screen result.
 - **Access point:** a servo opens for 3 seconds when access is authorized.
-- **Access log:** every attempt is stored with date and time, user, method (`interfaz_grafica`, `botones` or `facial`) and result (`autorizado`, `sin_permiso`, `no_reconocido` or `error_sistema`).
-- **Fallback:** if the screen is unavailable, the system runs with the physical buttons only (`--solo-botones`).
+- **Access log:** every attempt is stored with date and time, user, method (`interfaz_grafica`, `botones`, `facial`, or `app_movil`) and result (`autorizado`, `sin_permiso`, `no_reconocido` or `error_sistema`).
+- **Fallback:** use `--solo-botones` to run without the graphical interface. The mobile API can run in either mode.
 
 ## Hardware
 
@@ -32,7 +32,7 @@ Local access control system for a Raspberry Pi. Users identify themselves with t
 | Speaker | Audio feedback | Bluetooth |
 | Monitor | Graphical interface | Connected to the Raspberry Pi |
 
-See `documentacion/hardware.md` for the full wiring and assembly guide.
+See the [hardware documentation](documentacion/documentacion.md) for wiring and assembly details.
 
 ## Software
 
@@ -47,6 +47,8 @@ See `documentacion/hardware.md` for the full wiring and assembly guide.
 | `src/headless_mode.py` | Button-only mode without a screen |
 | `src/reconocimiento_facial/` | Face enrollment and face recognition |
 | `src/scripts_db/` | Database connection and SQL scripts |
+| `src/api/` | Local HTTPS API for mobile authentication, presence, and access requests |
+| `app_movil/` | Android application |
 
 ## Requirements
 
@@ -65,20 +67,22 @@ wget -L -O sface.onnx https://github.com/opencv/opencv_zoo/raw/main/models/face_
 
 ## Database setup
 
-Run these scripts from `src/scripts_db/` with an administrator MySQL account, in this order:
-
-1. `db_squema.sql`: base schema (roles, users, access attempts)
-2. `add_biometric_table.sql`: facial embeddings table
-3. `add_user_active_flag.sql`: active flag for users
-4. `grant_delete_embeddings.sql`: permission for the application user to delete embeddings
+Follow the [installation and migration procedure](documentacion/installation.md)
+for a new or existing database. The mobile biometric credential migration uses
+the existing MySQL database.
 
 ## How to run
 
+From the repository root:
+
 ```bash
-cd src
-[CONFIRM: command that starts the system]
-python3 [CONFIRM: entry point] --solo-botones    # buttons only, no screen
+python3 src/Main_code.py
+python3 src/Main_code.py --solo-botones
 ```
+
+For the mobile app, configure HTTPS using the
+[mobile API guide](documentacion/mobile_api_contract.md) and see the
+[Android setup](app_movil/README.md).
 
 To enroll a face for an existing user:
 

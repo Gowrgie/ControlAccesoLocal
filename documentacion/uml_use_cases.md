@@ -6,7 +6,10 @@ flowchart LR
     %% MOBILE APPLICATION BOUNDARY
     subgraph APP["Mobile Access Application"]
         direction TB
-        UC1(["Log in"])
+        UC1(["Sign in"])
+        PASS(["Sign in with ID and passcode"])
+        BIO(["Sign in with Android biometrics"])
+        LINK(["Link this phone"])
         UC2(["Check PIR presence"])
         UC3(["Request access"])
         UC4(["Use secure local connection"])
@@ -19,6 +22,9 @@ flowchart LR
     U --- UC3
     U --- UC5
     %% USE CASE RELATIONSHIPS
+    PASS -->|specializes| UC1
+    BIO -->|specializes| UC1
+    LINK -.->|extend| PASS
     UC1 -.->|include| UC4
     UC3 -.->|include| UC2
     UC3 -.->|include| UC4
@@ -31,4 +37,5 @@ flowchart LR
     UC3 --- API
     UC4 --- API
     UC5 --- API
+    BIO --- ANDROID["Android biometric service"]
     ```

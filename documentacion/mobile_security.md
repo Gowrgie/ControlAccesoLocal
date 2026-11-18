@@ -16,7 +16,7 @@
 
 ## Mobile sessions
 
-- `POST /sessions` creates a token with a fixed lifetime of 10 minutes.
+- `POST /sessions` and `POST /sessions/biometric` issue tokens with a fixed lifetime of 10 minutes.
   The database stores the token hash and its expiration timestamp.
 - The client sends the token in the `Authorization: Bearer <token>`
   header. Tokens must be kept out of URLs and application logs.
@@ -24,6 +24,22 @@
   invalid, or expired token returns `401 Unauthorized`.
 - `DELETE /sessions` revokes the session by deleting its stored token
   hash and returns `204 No Content` even if the session is already gone.
+
+## Android biometric credentials
+
+- Linking a device requires a successful identifier-and-passcode sign-in.
+  MySQL stores the account association and the P-256 public key. Android
+  Keystore holds the private key and requires Class 3 biometrics for signing.
+- Authentication signs a server challenge bound to the linked credential and
+  the originating IP address. A challenge expires after 60 seconds and is
+  consumed on verification. The server checks the signature and account status
+  before issuing the standard session token. This implementation verifies
+  key possession and does not attest the hardware origin of the key.
+- The mobile API does not receive the phone's face images or fingerprint
+  templates. The Raspberry Pi camera uses its separate local facial enrollment
+  and recognition flow.
+- Deleting a linked credential blocks subsequent biometric sign-ins with that
+  key. Existing session tokens follow the normal expiration or revocation rules.
 
 ## Rate limiting
 
@@ -34,6 +50,7 @@ The HTTP service must enforce these configurable limits over a rolling
 | --- | --- | --- |
 | `POST /sessions` | 10 login attempts | Source IP |
 | `POST /sessions` | 5 failed login attempts | Login identifier |
+| `POST /sessions/biometric/challenge` | 5 challenges | Source IP |
 | `POST /access-requests` | 10 submissions | Authenticated user |
 | `GET /presence` and `GET /access-requests/{request_id}` | 120 requests combined | Authenticated session |
 

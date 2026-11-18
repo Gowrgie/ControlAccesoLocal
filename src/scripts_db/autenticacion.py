@@ -57,7 +57,7 @@ def _hash_token(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def _emitir_sesion(conexion, cursor, id_usuario):
+def _emitir_sesion(conexion, cursor, id_usuario, clave_publica=None):
     """Crea una sesión para una identidad ya verificada que siga activa."""
     token = secrets.token_urlsafe(32)
     expira = datetime.now() + timedelta(minutes=DURACION_SESION_MINUTOS)
@@ -69,14 +69,23 @@ def _emitir_sesion(conexion, cursor, id_usuario):
         """,
         (_hash_token(token), expira, id_usuario),
     )
-    creada = cursor.rowcount == 1
+    if cursor.rowcount != 1:
+        return None
+
+    sesion = {"token": token, "expira": expira}
+    if clave_publica is not None:
+        id_credencial = secrets.token_urlsafe(24)
+        cursor.execute(
+            "INSERT INTO credenciales_biometricas_movil (id_credencial, id_usuario, clave_publica) "
+            "VALUES (%s, %s, %s)",
+            (id_credencial, id_usuario, clave_publica),
+        )
+        sesion["biometric_credential_id"] = id_credencial
     conexion.commit()
-    if creada:
-        return {"token": token, "expira": expira}
-    return None
+    return sesion
 
 
-def iniciar_sesion(identificador, clave):
+def iniciar_sesion(identificador, clave, *, clave_publica=None):
     """Valid credentials -> {"token", "expira"}. Anything else -> None."""
     if not isinstance(identificador, str) or not isinstance(clave, str):
         return None
@@ -99,20 +108,30 @@ def iniciar_sesion(identificador, clave):
         try:
             if not hay_hash or not usuario["activo"] or not clave_correcta:
                 return None
-            return _emitir_sesion(conexion, cursor, usuario["id_usuario"])
+            return _emitir_sesion(conexion, cursor, usuario["id_usuario"], clave_publica)
         finally:
             cursor.close()
     finally:
         conexion.close()
 
 
-def iniciar_sesion_usuario_verificado(id_usuario):
-    """Emite una sesión para una identidad verificada por el servidor."""
+def iniciar_sesion_biometrica(id_credencial, mensaje, firma):
+    """Emite una sesión solo para una firma válida de una clave vinculada."""
+    from scripts_db.claves_dispositivo import verificar_firma
+
     conexion = conectar_bd()
     try:
         cursor = conexion.cursor()
         try:
-            return _emitir_sesion(conexion, cursor, id_usuario)
+            cursor.execute(
+                "SELECT id_usuario, clave_publica FROM credenciales_biometricas_movil "
+                "WHERE id_credencial = %s",
+                (id_credencial,),
+            )
+            credencial = cursor.fetchone()
+            if credencial is None or not verificar_firma(bytes(credencial[1]), mensaje, firma):
+                return None
+            return _emitir_sesion(conexion, cursor, credencial[0])
         finally:
             cursor.close()
     finally:

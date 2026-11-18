@@ -29,6 +29,8 @@ This document links the system requirements with the Jira tasks, project changes
 | FR-21 | LAC-53, LAC-65, LAC-71 | `registrar_rostro.py`, `database.py`, `db_conexion.py` | Each facial sample is stored with a user ID, linking biometric data to the corresponding local user and permissions. |
 | FR-22 | LAC-65, LAC-67 | `reconocer_rostro.py`, `access_flow.py`, `access_logic.py`, `db_conexion.py` | After identifying a face, the system checks the user's permissions and determines whether access is allowed. |
 | FR-23 | LAC-67 | `reconocer_rostro.py`, `access_logic.py`, `db_conexion.py` | Unknown faces are rejected when no stored facial sample meets the recognition threshold. |
+| FR-24 | LAC-83, LAC-123 | `autenticacion.py`, `IdentificationScreen.kt` | Identifier-and-passcode sign-in confirmed on the Moto e13. |
+| FR-31 | LAC-123 | `DeviceBiometrics.kt`, `sesion_biometrica.py`, `add_mobile_biometrics.sql`, `test_mobile_security.py` | Automated tests verify password-based linking, signature verification, replay rejection, and inactive-account rejection. End-to-end biometric sign-in on compatible hardware remains pending. |
 
 ## Non-Functional Requirements
 
@@ -54,3 +56,4 @@ This document links the system requirements with the Jira tasks, project changes
 | LAC-58 | Translate requirements and add facial requirements | `Requirements.md` was translated to English and extended through FR-23 and NFR-11. |
 | LAC-74 | Create system architecture diagram | `system_architecture.md` shows the interaction between hardware, software, database, facial recognition, and access control. |
 | LAC-79 | Rebuild traceability in English with Jira keys | The traceability document was updated with Jira keys, current modules, and the latest requirements. |
+| LAC-123 | Add Android biometric sign-in | [Mobile API contract](mobile_api_contract.md), [Android class design](android_class_design.md), [Mobile sequence](uml_sequence_app.md), and [Database ER diagram](data.md). |

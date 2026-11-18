@@ -8,9 +8,9 @@ flowchart LR
     U -->|Identification and passcode via GUI or physical buttons| S
     U -->|Facial capture for enrollment or identification| S
     U -->|Presence detected through PIR sensor| S
-    U -->|Login and access request| MA
+    U -->|ID and passcode or Android biometrics, then request access| MA
     S -->|PIR presence status| MA
-    MA -->|Encrypted and authenticated request through local API| S
+    MA -->|Local HTTPS sign-in and session-backed access request| S
     S -->|Authorized, no permission, unrecognized, or system error| MA
     MA -->|Display access result or technical failure| U
     S -->|Access validation result| U

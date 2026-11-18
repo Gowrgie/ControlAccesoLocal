@@ -15,6 +15,8 @@ Apply these files in order to a new database:
 4. `add_user_active_flag.sql` adds `usuarios.activo` and the active embeddings view.
 5. `add_mobile_auth.sql` adds `usuarios.clave_hash` and `sesiones_movil`.
 6. `add_mobile_method.sql` adds `app_movil` to the access log.
+7. `add_mobile_biometrics.sql` creates the table for Android device credentials
+   and grants the operational account permission to read and insert them.
 
 Install the dependencies from `requirements-mobile-api.txt` in the
 application's Python environment. From `src/` with that environment active,
@@ -31,6 +33,12 @@ Then configure the administrative account below.
 Skip `db_squema.sql` on an existing database. Check which migrations have
 already been applied and run the missing ones in the order above. If any users
 still need a mobile hash, run the backfill after `add_mobile_auth.sql`.
+
+For LAC-123, apply `add_mobile_biometrics.sql` and install the updated
+`requirements-mobile-api.txt` in the application's Python environment.
+Each user links a compatible phone through a successful password sign-in.
+Existing Raspberry Pi camera enrollments stay in `embeddings_faciales`.
+See [Android biometric sign-in](mobile_api_contract.md#android-biometric-sign-in-lac-123).
 
 ## Administrative account
 

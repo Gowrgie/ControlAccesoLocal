@@ -12,7 +12,10 @@ flowchart LR
     E4[/Mobile login and access request/]
     %% MOBILE API
     P1[Receive mobile request through local API]
-    C1{Encrypted and authenticated connection?}
+    C1{Encrypted local connection?}
+    ML[Verify passcode or linked-device signature]
+    MS{Valid mobile session?}
+    MK[(Linked Android public keys)]
     C2{PIR presence detected?}
     C3{Access operation available?}
     %% SHARED VALIDATION
@@ -39,7 +42,7 @@ flowchart LR
     C5{Database query successful?}
     C6{User and passcode valid?}
     C7{Registered face identified?}
-    C8{Facial user query successful?}
+    C8{User query successful?}
     C9{Role and permissions allow access?}
     C10{Enrollment saved successfully?}
     %% ACCESS RESULTS
@@ -78,10 +81,18 @@ flowchart LR
     P1 --> C1
     C1 -- No --> S8
     S8 --> MA
-    C1 -- Yes --> C2
+    C1 -- Yes --> ML
+    ML <-->|Link or look up device key| MK
+    ML <-->|Query account| D2
+    ML --> MS
+    MS -- No --> S8
+    MS -- Yes --> C2
     C2 -- No --> S7
     S7 --> MA
-    C2 -- Yes --> C3
+    C2 -- Yes --> MQ[Queue request and wait for its turn]
+    MQ --> MP{Turn available before expiry with PIR still active?}
+    MP -- No --> S7
+    MP -- Yes --> P6
 
     %% OTHER ACCESS METHODS
     E1 --> C3
@@ -91,7 +102,7 @@ flowchart LR
     %% ONE OPERATION AT A TIME
     C3 -- No --> S7
     C3 -- Yes --> C4
-    C4 -- GUI, buttons, or mobile --> P2
+    C4 -- GUI or buttons --> P2
     C4 -- Facial recognition --> P5
 
     %% CREDENTIAL VALIDATION

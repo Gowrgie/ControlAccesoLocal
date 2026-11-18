@@ -14,18 +14,24 @@ flowchart TD
     H -- Facial recognition --> FR1[/Capture live facial image/]
     %% MOBILE ACCESS
     D --> M1[/Receive mobile login and access request/]
-    M1 --> M2{Secure and authenticated local API connection?}
+    M1 --> M2{Secure local API connection?}
     M2 -- No --> M3[/Reject insecure request/]
     M3 --> Z
-    M2 -- Yes --> M4{PIR presence detected?}
+    M2 -- Yes --> ML[Verify passcode or linked-device signature]
+    ML --> MS{Valid mobile session?}
+    MS -- No --> Z
+    MS -- Yes --> M4{PIR presence detected?}
     M4 -- No --> M5[/Inform app that access is unavailable/]
     M5 --> Z
-    M4 -- Yes --> M6[/Receive mobile user ID and passcode/]
+    M4 -- Yes --> M6[/Receive session-backed mobile access request/]
     %% OPERATION CONTROL
     I --> OP
     J --> OP
     FR1 --> OP
-    M6 --> OP
+    M6 --> MQ[Queue request and wait for its turn]
+    MQ --> MP{Turn available before expiry with PIR still active?}
+    MP -- No --> Z
+    MP -- Yes --> FR4
     OP{System available for a new operation?}
     OP -- No --> BUSY[/Return system busy response/]
     BUSY --> Z

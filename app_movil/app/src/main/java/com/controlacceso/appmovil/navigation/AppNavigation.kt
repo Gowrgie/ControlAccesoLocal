@@ -14,7 +14,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.controlacceso.appmovil.data.AccessRequestCreate
 import com.controlacceso.appmovil.data.ApiClient
-import com.controlacceso.appmovil.ui.FaceCaptureScreen
 import com.controlacceso.appmovil.ui.IdentificationScreen
 import com.controlacceso.appmovil.ui.RequestScreen
 import com.controlacceso.appmovil.ui.ResultScreen
@@ -28,7 +27,6 @@ import kotlinx.coroutines.launch
 private const val TIMEOUT_SOLICITUD_MS = 20_000L
 object Routes {
     const val IDENTIFICATION = "identification"
-    const val FACE_CAPTURE = "face_capture"
     const val REQUEST = "request"
     const val RESULT = "result"
 }
@@ -74,17 +72,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
         startDestination = Routes.IDENTIFICATION
     ) {
         composable(Routes.IDENTIFICATION) {
-            IdentificationScreen(
-                onLoggedIn = nuevaSesion,
-                onFaceCapture = { navController.navigate(Routes.FACE_CAPTURE) { launchSingleTop = true } }
-            )
-        }
-
-        composable(Routes.FACE_CAPTURE) {
-            FaceCaptureScreen(
-                onLoggedIn = nuevaSesion,
-                onBack = { navController.popBackStack() }
-            )
+            IdentificationScreen(onLoggedIn = nuevaSesion)
         }
 
         composable(Routes.REQUEST) {

@@ -9,21 +9,23 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from mysql.connector import Error as ErrorMySQL
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr
 
 from api.rate_limit import LimitadorSolicitudes
-from api.sesion_facial import registrar_sesion_facial
+from api.sesion_biometrica import registrar_sesion_biometrica
 from scripts_db import autenticacion
 
 
 class LoginRequest(BaseModel):
     identificador: str
     clave: SecretStr
+    biometric_public_key: Optional[str] = Field(default=None, min_length=1, max_length=164)
 
 
 class Session(BaseModel):
     token: str
     expira: datetime
+    biometric_credential_id: Optional[str] = None
 
 
 class ErrorResponse(BaseModel):
@@ -47,7 +49,6 @@ class AccessRequestStatus(BaseModel):
 def crear_api(
     *,
     obtener_presencia=None,
-    verificar_rostro=None,
     despachador=None,
     reloj=monotonic,
     limite_login_ip=10,
@@ -66,7 +67,7 @@ def crear_api(
             content={"error": "Datos de solicitud inválidos"},
         )
 
-    registrar_sesion_facial(api, verificar_rostro, reloj)
+    registrar_sesion_biometrica(api, reloj)
 
     bearer = HTTPBearer(auto_error=False)
 
@@ -92,6 +93,7 @@ def crear_api(
     @api.post(
         "/sessions",
         response_model=Session,
+        response_model_exclude_none=True,
         responses={
             401: {"model": ErrorResponse},
             429: {"model": ErrorResponse},
@@ -113,12 +115,21 @@ def crear_api(
 
         credenciales_invalidas = False
         try:
+            argumentos = {}
+            if datos.biometric_public_key is not None:
+                from scripts_db.claves_dispositivo import decodificar_clave_publica
+
+                try:
+                    argumentos["clave_publica"] = decodificar_clave_publica(datos.biometric_public_key)
+                except ValueError:
+                    return JSONResponse(
+                        status_code=422, content={"error": "Clave pública biométrica inválida"},
+                    )
             sesion = autenticacion.iniciar_sesion(
-                datos.identificador,
-                datos.clave.get_secret_value(),
+                datos.identificador, datos.clave.get_secret_value(), **argumentos
             )
             credenciales_invalidas = sesion is None
-        except ErrorMySQL:
+        except (ErrorMySQL, ImportError):
             return JSONResponse(
                 status_code=503,
                 content={"error": "Servicio de autenticación no disponible"},
@@ -136,6 +147,7 @@ def crear_api(
         return Session(
             token=sesion["token"],
             expira=sesion["expira"].astimezone(timezone.utc),
+            biometric_credential_id=sesion.get("biometric_credential_id"),
         )
 
     @api.delete(

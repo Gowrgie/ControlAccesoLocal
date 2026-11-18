@@ -9,6 +9,7 @@ flowchart LR
     %% MOBILE APPLICATION
     subgraph MOBILE["Mobile Application"]
         APP[Mobile Access Application]
+        AB[Android biometric prompt and Keystore]
     end
     %% HARDWARE LAYER
     subgraph HW["Raspberry Pi Hardware"]
@@ -43,7 +44,8 @@ flowchart LR
     subgraph DATA["Local Data Layer"]
         DB[(MySQL Database)]
         USERS[(Users / Password Hashes / Roles / Permissions)]
-        BIO[(Local Biometric Data)]
+        BIO[(Local facial embeddings)]
+        KEYS[(Linked Android device public keys)]
         LOGS[(Access Attempt Logs)]
     end
     %% USER INTERACTION
@@ -68,9 +70,11 @@ flowchart LR
     CAM -->|Enrollment capture| ENROLL
     FACE -->|Identified user or unknown face| GATE
     %% MOBILE COMMUNICATION
-    APP -->|Encrypted and authenticated local connection| API
+    APP -->|Authorize challenge signing| AB
+    APP -->|Local HTTPS sign-in and access requests| API
     API -->|Mobile login| SESSION
-    SESSION -->|Verify login credentials| AUTH
+    SESSION -->|Verify ID and passcode| AUTH
+    SESSION <-->|Link device or load public key for signature verification| KEYS
     AUTH -->|Login verification result| SESSION
     SESSION -->|Login result| API
     API -->|Mobile access request| GATE

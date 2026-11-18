@@ -1,23 +1,9 @@
-import os
 import ssl
 from threading import Thread
 
 import uvicorn
 
 from api.app import crear_api
-
-
-def _cargar_verificador_facial():
-    modelo = os.environ.get("MOBILE_FACE_PAD_MODEL")
-    if not modelo:
-        return None
-    try:
-        from reconocimiento_facial.verificacion_movil import VerificadorFacialMovil
-
-        return VerificadorFacialMovil(modelo).verificar
-    except (ImportError, OSError, ValueError, RuntimeError) as error:
-        print(f"[API MÓVIL] Inicio facial no disponible: {error}", flush=True)
-        return None
 
 
 class ServidorApiMovil:
@@ -27,7 +13,6 @@ class ServidorApiMovil:
 
         api = crear_api(
             obtener_presencia=control.consultar_presencia_movil,
-            verificar_rostro=_cargar_verificador_facial(),
             despachador=control.despachador,
         )
 

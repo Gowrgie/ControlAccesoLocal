@@ -6,12 +6,15 @@ classDiagram
     class RepositorioAcceso {
         <<interface>>
         +iniciarSesion(identificador, clave)
+        +vincularDispositivo(identificador, clave)
+        +iniciarSesionBiometrica(credencial)
         +cerrarSesion(sesion)
         +consultarPresencia(sesion)
         +enviarSolicitud(sesion, uuid)
         +consultarSolicitud(sesion, uuid)
     }
     class RepositorioAccesoRemoto
+    class DeviceBiometrics
     class ApiService {
         <<interface>>
     }
@@ -32,6 +35,7 @@ classDiagram
     AccesoViewModel --> SesionMovil
     RepositorioAcceso <|.. RepositorioAccesoRemoto
     RepositorioAccesoRemoto --> ApiService
+    RepositorioAccesoRemoto --> DeviceBiometrics : signs challenge
     UsuarioIdentificado "1" -- "0..1" SesionMovil : session held by the client
     SesionMovil "1" -- "0..*" SolicitudAcceso : requests in the session
 ```

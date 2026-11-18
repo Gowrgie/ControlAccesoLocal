@@ -21,25 +21,12 @@ object ApiClient {
         .addInterceptor(loggingInterceptor)
         .build()
 
-    private val retrofit by lazy {
+    val service: ApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-    }
-
-    val service: ApiService by lazy { retrofit.create(ApiService::class.java) }
-
-    val facial: FaceSessionApi by lazy {
-        val client = okHttpClient.newBuilder()
-            .readTimeout(12, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
-            .build()
-
-        retrofit.newBuilder()
-            .client(client)
-            .build()
-            .create(FaceSessionApi::class.java)
+            .create(ApiService::class.java)
     }
 }

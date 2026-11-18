@@ -4,6 +4,7 @@ erDiagram
     USUARIOS |o--o{ INTENTOS_ACCESO : "makes"
     USUARIOS ||--o{ EMBEDDINGS_FACIALES : "owns"
     USUARIOS ||--o{ SESIONES_MOVIL : "opens"
+    USUARIOS ||--o{ CREDENCIALES_BIOMETRICAS_MOVIL : "links"
 
     ROLES {
         int id_rol PK
@@ -45,5 +46,12 @@ erDiagram
         int id_usuario FK
         datetime creada
         datetime expira
+    }
+
+    CREDENCIALES_BIOMETRICAS_MOVIL {
+        char(32) id_credencial PK
+        int id_usuario FK
+        varbinary(120) clave_publica "P-256 DER"
+        datetime creada
     }
 ```

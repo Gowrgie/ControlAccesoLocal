@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import importlib
 import sqlite3
@@ -6,13 +7,19 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from fastapi.testclient import TestClient
+
+from api.app import crear_api
+
 
 class PruebaSesionesMoviles(unittest.TestCase):
     def setUp(self):
         with patch.dict(sys.modules, {"scripts_db.db_conexion": Mock()}):
             self.auth = importlib.import_module("scripts_db.autenticacion")
 
-        self.bd = sqlite3.connect(":memory:")
+        self.bd = sqlite3.connect(":memory:", check_same_thread=False)
         self.addCleanup(self.bd.close)
         self.bd.execute(
             "CREATE TABLE sesiones_movil "
@@ -23,6 +30,11 @@ class PruebaSesionesMoviles(unittest.TestCase):
             "CREATE TABLE usuarios "
             "(id_usuario INTEGER PRIMARY KEY, identificador TEXT, clave_hash TEXT, activo BOOLEAN)"
         )
+        self.bd.execute(
+            "CREATE TABLE credenciales_biometricas_movil "
+            "(id_credencial TEXT PRIMARY KEY, id_usuario INTEGER, clave_publica BLOB)"
+        )
+
         self.token = "token-de-prueba"
         self.expira = datetime(2030, 1, 1, 12, 10)
         token_hash = hashlib.sha256(self.token.encode("utf-8")).hexdigest()
@@ -88,6 +100,69 @@ class PruebaSesionesMoviles(unittest.TestCase):
         self.assertIsNone(
             self.bd.execute("SELECT 1 FROM sesiones_movil WHERE id_usuario = ?", (8,)).fetchone()
         )
+
+    def preparar_biometria(self):
+        self.bd.execute(
+            "INSERT INTO usuarios VALUES (?, ?, ?, ?)",
+            (8, "biometria", self.auth.hashear_clave("clave-prueba"), True),
+        )
+        clave = ec.generate_private_key(ec.SECP256R1())
+        publica = clave.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        credenciales = {
+            "identificador": "biometria",
+            "clave": "clave-prueba",
+            "biometric_public_key": base64.b64encode(publica).decode(),
+        }
+        cliente = TestClient(crear_api())
+        self.addCleanup(cliente.close)
+        return cliente, clave, credenciales
+
+    def pedir_reto(self, cliente, id_credencial):
+        respuesta = cliente.post(
+            "/sessions/biometric/challenge", json={"credential_id": id_credencial}
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        return respuesta.json()["challenge"]
+
+    @staticmethod
+    def firmar_reto(clave, reto):
+        firma = clave.sign(reto.encode("ascii"), ec.ECDSA(hashes.SHA256()))
+        return {"challenge": reto, "signature": base64.b64encode(firma).decode()}
+
+    def test_biometria_vincula_por_clave_y_emite_sesion_con_firma_de_un_solo_uso(self):
+        cliente, clave, datos = self.preparar_biometria()
+        vinculo = cliente.post("/sessions", json=datos)
+        self.assertEqual(vinculo.status_code, 200)
+        id_credencial = vinculo.json()["biometric_credential_id"]
+
+        reto = self.pedir_reto(cliente, id_credencial)
+        firmado = self.firmar_reto(clave, reto)
+        inicio = cliente.post("/sessions/biometric", json=firmado)
+        self.assertEqual(inicio.status_code, 200)
+        self.assertEqual(self.auth.validar_sesion(inicio.json()["token"]), 8)
+        self.assertEqual(cliente.post("/sessions/biometric", json=firmado).status_code, 401)
+
+    def test_biometria_rechaza_clave_alterna_y_cuenta_inactiva(self):
+        cliente, clave, datos = self.preparar_biometria()
+        id_credencial = cliente.post("/sessions", json=datos).json()["biometric_credential_id"]
+
+        reto = self.pedir_reto(cliente, id_credencial)
+        otra = ec.generate_private_key(ec.SECP256R1())
+        respuesta = cliente.post("/sessions/biometric", json=self.firmar_reto(otra, reto))
+        self.assertEqual(respuesta.status_code, 401)
+
+        self.bd.execute("UPDATE usuarios SET activo = FALSE WHERE id_usuario = 8")
+        reto = self.pedir_reto(cliente, id_credencial)
+        respuesta = cliente.post("/sessions/biometric", json=self.firmar_reto(clave, reto))
+        self.assertEqual(respuesta.status_code, 401)
+
+    def test_no_vincula_biometria_con_contrasena_incorrecta(self):
+        cliente, _, datos = self.preparar_biometria()
+        datos["clave"] = "incorrecta"
+        self.assertEqual(cliente.post("/sessions", json=datos).status_code, 401)
+        self.assertIsNone(self.bd.execute("SELECT id_credencial FROM credenciales_biometricas_movil").fetchone())
 
     def test_token_vigente_devuelve_el_usuario(self):
         ahora = self.expira - timedelta(seconds=1)

@@ -30,19 +30,32 @@ classDiagram
     class ApiService {
         <<interface>>
         +login(request: LoginRequest) SessionResponse
+        +createBiometricChallenge(request: BiometricChallengeRequest) BiometricChallenge
+        +loginBiometrically(request: BiometricSessionRequest) SessionResponse
         +logout(token: String) void
         +getPresence(token: String) PresenceResponse
         +createAccessRequest(token: String, request: AccessRequestCreate) AccessRequestStatus
         +getAccessRequestStatus(token: String, requestId: String) AccessRequestStatus
     }
+    class DeviceBiometrics {
+        +disponible(context)
+        +vinculada()
+        +crearClave()
+        +guardar(id, alias)
+        +firmar(activity, alias, reto)
+    }
+    class AndroidKeystore
+    class BiometricPrompt
     %% AUTHENTICATION MODELS
     class LoginRequest {
         +identificador: String
         +clave: String
+        +biometricPublicKey: String?
     }
     class SessionResponse {
         +token: String
         +expira: String
+        +biometricCredentialId: String?
     }
     %% PRESENCE MODEL
     class PresenceResponse {
@@ -67,9 +80,11 @@ classDiagram
     AppNavigation --> RequestScreen : access request
     AppNavigation --> ResultScreen : access result
     %% SCREEN DEPENDENCIES
-    IdentificationScreen ..> ApiClient : login
+    IdentificationScreen ..> ApiClient : sign-in
+    IdentificationScreen --> DeviceBiometrics : link and authenticate
+    DeviceBiometrics ..> AndroidKeystore : store and use key
+    DeviceBiometrics ..> BiometricPrompt : authorize signing
     AppNavigation ..> ApiClient : presence, access request, status, logout
-    AppNavigation ..> ApiClient : session and status
     %% API RELATIONSHIPS
     ApiClient "1" --> "1" ApiService : provides
     ApiService ..> LoginRequest : sends
