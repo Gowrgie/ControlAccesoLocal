@@ -1,5 +1,6 @@
 package com.controlacceso.appmovil.navigation
 
+import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
@@ -8,12 +9,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.controlacceso.appmovil.data.AccessRequestCreate
 import com.controlacceso.appmovil.data.ApiClient
+import com.controlacceso.appmovil.ui.FaceCaptureScreen
 import com.controlacceso.appmovil.ui.IdentificationScreen
 import com.controlacceso.appmovil.ui.RequestScreen
 import com.controlacceso.appmovil.ui.ResultScreen
@@ -27,6 +30,7 @@ import kotlinx.coroutines.launch
 private const val TIMEOUT_SOLICITUD_MS = 20_000L
 object Routes {
     const val IDENTIFICATION = "identification"
+    const val FACE_CAPTURE = "face_capture"
     const val REQUEST = "request"
     const val RESULT = "result"
 }
@@ -38,6 +42,8 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     var envioIntentado by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
+    val cameraTestEnabled =
+        LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     fun volverAlInicio() {
         val token = tokenSesion
@@ -63,12 +69,25 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
         startDestination = Routes.IDENTIFICATION
     ) {
         composable(Routes.IDENTIFICATION) {
-            IdentificationScreen(onLoggedIn = { token ->
-                tokenSesion = token
-                solicitudId = null
-                envioIntentado = false
-                navController.navigate(Routes.REQUEST)
-            })
+            IdentificationScreen(
+                onLoggedIn = { token ->
+                    tokenSesion = token
+                    solicitudId = null
+                    envioIntentado = false
+                    navController.navigate(Routes.REQUEST)
+                },
+                onFaceCapture = if (cameraTestEnabled) {
+                    { navController.navigate(Routes.FACE_CAPTURE) { launchSingleTop = true } }
+                } else {
+                    null
+                }
+            )
+        }
+
+        if (cameraTestEnabled) {
+            composable(Routes.FACE_CAPTURE) {
+                FaceCaptureScreen(onBack = { navController.popBackStack() })
+            }
         }
 
         composable(Routes.REQUEST) {
